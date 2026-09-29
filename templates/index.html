@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Приглашение 💖</title>
+
+  <!-- Telegram WebApp SDK & Confetti -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    /* ----------------------------------------------------
+       ПАСТЕЛЬНАЯ ЦВЕТОВАЯ ПАЛИТРА И СБРОС
+    ---------------------------------------------------- */
+    :root {
+      --bg-color: #fce4ec;         /* Нежно-розовый пастельный */
+      --card-bg: #ffffff;
+      --accent-pink: #f48fb1;     /* Пастельный розовый акцент */
+      --accent-deep: #e91e63;
+      --text-main: #4a4a4a;
+      --btn-bg: #f8bbd0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Фоновый паттерн */
+    .tg-bg-pattern {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      padding: 20px;
+      opacity: 0.15;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .tg-bg-pattern span {
+      font-size: 26px;
+      display: flex; justify-content: center; align-items: center;
+    }
+
+    /* ----------------------------------------------------
+       ИДЕАЛЬНОЕ ЦЕНТРИРОВАНИЕ ЭКРАНОВ И ЭЛЕМЕНТОВ
+    ---------------------------------------------------- */
+    .screen {
+      position: absolute;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 10;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    .screen.hidden { display: none !important; }
+    .screen.active { display: flex !important; }
+
+    /* Тестовая кнопка перевода на самый первый экран */
+    .test-skip-btn {
+      position: fixed;
+      top: 12px; right: 12px;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px dashed var(--accent-pink);
+      color: var(--accent-deep);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      z-index: 9999;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Текстовые бабблы интро */
+    .text-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+    }
+    .text-bubble {
+      color: #ad1457;
+      font-size: 28px;
+      font-weight: 800;
+      padding: 16px 24px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(244, 143, 177, 0.2);
+    }
+    .text-bubble.highlight { color: var(--accent-deep); font-size: 32px; }
+    .text-bubble.multiline { font-size: 22px; line-height: 1.4; }
+
+    .final-buttons {
+      position: absolute;
+      bottom: 40px;
+      width: 85%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Кнопки */
+    .main-button {
+      background: var(--btn-bg);
+      color: #880e4f;
+      border: 2px solid #ffffff;
+      border-radius: 18px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(244, 143, 177, 0.3);
+      width: 100%;
+      transition: all 0.2s;
+    }
+    .main-button:active { transform: scale(0.97); }
+
+    .super-random-btn {
+      background: linear-gradient(135deg, #ff80ab, #f50057);
+      color: white;
+      border: 2px solid #ffffff;
+      border-radius: 18px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(245, 0, 87, 0.3);
+      width: 100%;
+      margin-top: 10px;
+      transition: all 0.2s;
+    }
+    .super-random-btn:active { transform: scale(0.97); }
+
+    .reject-button {
+      background: transparent;
+      color: #9e9e9e;
+      border: none;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* Карточки фильтров и форм */
+    .card-panel {
+      background: var(--card-bg);
+      border-radius: 24px;
+      padding: 20px;
+      width: 100%;
+      max-width: 340px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+      border: 1px solid #f8bbd0;
+      margin-bottom: 12px;
+      text-align: left;
+    }
+
+    .filter-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ad1457;
+      margin-bottom: 8px;
+    }
+
+    .chips-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip-btn {
+      background: #fce4ec;
+      border: 1px solid #f8bbd0;
+      color: var(--text-main);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .chip-btn.selected {
+      background: var(--accent-pink);
+      color: white;
+    }
+
+    /* ----------------------------------------------------
+       TINDER SWIPE MECHANISM
+    ---------------------------------------------------- */
+    .tinder-container {
+      position: relative;
+      width: 300px;
+      height: 400px;
+      margin: 10px 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .tinder-card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: white;
+      border-radius: 24px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+      border: 1px solid #f8bbd0;
+      touch-action: none;
+      cursor: grab;
+      will-change: transform;
+    }
+    .tinder-card:active {
+      cursor: grabbing;
+    }
+    .tinder-img {
+      width: 100%;
+      height: 200px;
+      border-radius: 16px;
+      object-fit: cover;
+      pointer-events: none;
+    }
+
+    /* Плашки ДА / НЕТ при свайпе */
+    .swipe-badge {
+      position: absolute;
+      top: 25px;
+      padding: 6px 16px;
+      border-radius: 12px;
+      font-size: 20px;
+      font-weight: 800;
+      opacity: 0;
+      text-transform: uppercase;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .badge-yes {
+      left: 20px;
+      color: #2e7d32;
+      border: 3px solid #2e7d32;
+      transform: rotate(-15deg);
+    }
+    .badge-no {
+      right: 20px;
+      color: #c62828;
+      border: 3px solid #c62828;
+      transform: rotate(15deg);
+    }
+
+    /* ----------------------------------------------------
+       КОЛЕСО ФОРТУНЫ
+    ---------------------------------------------------- */
+    .wheel-wrapper {
+      position: relative;
+      width: 280px;
+      height: 280px;
+      margin: 20px 0;
+    }
+    .wheel-pointer {
+      position: absolute;
+      top: -10px; left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-top: 20px solid var(--accent-deep);
+      z-index: 100;
+    }
+    #wheelCanvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+
+    /* Анимации экрана интро */
+    #step-1.active .text-bubble { animation: bounceUp 0.8s ease forwards; }
+    #step-2.active .text-bubble { animation: zoomIn 0.8s ease forwards; }
+    #step-3.active .text-bubble { animation: popScale 0.8s ease forwards; }
+    #step-4.active .text-bubble { animation: slideIn 0.8s ease forwards; }
+    @keyframes bounceUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes zoomIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+    @keyframes popScale { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: scale(1); } }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: translateX(0); } }
+  </style>
+</head>
+<body>
+
+  <!-- Кнопка ведет к первому экрану со словом "Я" -->
+  <button class="test-skip-btn" onclick="testSkipToStart()">⏮ Тест: к экрану «Я»</button>
+
+  <div class="tg-bg-pattern">
+    <span>🌸</span><span>🎀</span><span>✨</span><span>💖</span>
+    <span>🌷</span><span>🌸</span><span>✨</span><span>🎀</span>
+    <span>💖</span><span>🌷</span><span>🌸</span><span>✨</span>
+  </div>
+
+  <!-- ШАГ 1: Я -->
+  <div id="step-1" class="screen active" onclick="nextStep(1, 2)">
+    <div class="text-container"><div class="text-bubble">Я</div></div>
+  </div>
+
+  <!-- ШАГ 2: приглашаю -->
+  <div id="step-2" class="screen hidden" onclick="nextStep(2, 3)">
+    <div class="text-container"><div class="text-bubble">приглашаю</div></div>
+  </div>
+
+  <!-- ШАГ 3: ТЕБЯ -->
+  <div id="step-3" class="screen hidden" onclick="nextStep(3, 4)">
+    <div class="text-container"><div class="text-bubble highlight">❤️ ТЕБЯ ❤️</div></div>
+  </div>
+
+  <!-- ШАГ 4: На самое лучшее свидание -->
+  <div id="step-4" class="screen hidden">
+    <div class="text-container"><div class="text-bubble multiline">на самое лучшее<br>свидание! 🎉</div></div>
+    <div class="final-buttons">
+      <button class="main-button" onclick="goToCategories(event)">УРААА ВЫБРАТЬ 💖</button>
+      <button class="reject-button" onclick="showRejection(event)">Нет, я тебя не люблю</button>
+    </div>
+  </div>
+
+  <!-- ЭКРАН ОТКАЗА -->
+  <div id="reject-screen" class="screen hidden" onclick="resetFlow()">
+    <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWdybmkweDk4aWt4YjY1dTB0dTJua2hmOXBmc2c0dDkxNG1weWNlMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/7AzEXdIb1wyCTWJntb/giphy.gif" style="width: 120px; border-radius: 16px; margin-bottom: 12px;">
+    <h2 style="color: #c62828;">Пошла нахуй! 💔</h2>
+    <p style="font-size: 14px; color: #666; margin-top: 4px;">Такой вариант не принимается!</p>
+  </div>
+
+  <!-- ЭКРАН 1: ФИЛЬТРЫ -->
+  <div id="categories-screen" class="screen hidden">
+    <h3 style="color: #ad1457; margin-bottom: 15px;">Чего тебе хочется? ✨</h3>
+
+    <div class="card-panel">
+      <div class="filter-title">🏡 Где проведём время?</div>
+      <div class="chips-group" id="filter-location">
+        <button class="chip-btn selected" data-value="all" onclick="selectChip('filter-location', this)">🎲 Любое</button>
+        <button class="chip-btn" data-value="home" onclick="selectChip('filter-location', this)">🏠 Дома</button>
+        <button class="chip-btn" data-value="outside" onclick="selectChip('filter-location', this)">🌆 На улице</button>
+      </div>
+    </div>
+
+    <div class="card-panel">
+      <div class="filter-title">⏰ Время суток?</div>
+      <div class="chips-group" id="filter-time">
+        <button class="chip-btn selected" data-value="any" onclick="selectChip('filter-time', this)">✨ Неважно</button>
+        <button class="chip-btn" data-value="day" onclick="selectChip('filter-time', this)">☀️ День</button>
+        <button class="chip-btn" data-value="night" onclick="selectChip('filter-time', this)">🌙 Вечер</button>
+      </div>
+    </div>
+
+    <div class="card-panel">
+      <div class="filter-title">🎭 Вид активности?</div>
+      <div class="chips-group" id="filter-activity">
+        <button class="chip-btn selected" data-value="any" onclick="selectChip('filter-activity', this)">🎲 Любая</button>
+        <button class="chip-btn" data-value="relax" onclick="selectChip('filter-activity', this)">🛋️ Уют</button>
+        <button class="chip-btn" data-value="active" onclick="selectChip('filter-activity', this)">🏃 Движ</button>
+        <button class="chip-btn" data-value="food" onclick="selectChip('filter-activity', this)">🍕 Еда</button>
+      </div>
+    </div>
+
+    <button class="main-button" style="max-width: 340px;" onclick="goToSelectionMode()">Далее ➡️</button>
+
+    <!-- Возвращенная кнопка Супер рандом -->
+    <button class="super-random-btn" style="max-width: 340px;" onclick="triggerSuperRandom()">⚡ СУПЕР РАНДОМ ⚡</button>
+  </div>
+
+  <!-- ЭКРАН 2: РЕЖИМЫ ВЫБОРА -->
+  <div id="selection-mode-screen" class="screen hidden">
+    <h3 style="color: #ad1457; margin-bottom: 20px;">Как выберем? 🎯</h3>
+    <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px;">
+      <button class="main-button" onclick="startMode('tinder')">🔥 ТИНДЕР СВАЙПЫ (Да / Нет)</button>
+      <button class="main-button" onclick="startMode('wheel')">🎡 Колесо Фортуны</button>
+      <button class="main-button" style="background: #f06292; color: white;" onclick="startMode('random')">🎲 Рандомное свидание</button>
+    </div>
+  </div>
+
+  <!-- ФОРМАТ 1: ТИНДЕР СВАЙПЫ -->
+  <div id="tinder-screen" class="screen hidden">
+    <h4 id="tinderRoundTitle" style="color: #ad1457; margin-bottom: 2px;">Свайпай карточки!</h4>
+    <p style="font-size: 12px; color: #888; margin-bottom: 10px;">👈 Влево — НЕТ | Вправо — ДА 👉</p>
+
+    <div class="tinder-container" id="tinderContainer"></div>
+  </div>
+
+  <!-- ФОРМАТ 2: КОЛЕСО ФОРТУНЫ -->
+  <div id="wheel-screen" class="screen hidden">
+    <h3 style="color: #ad1457;">Колесо Фортуны 🎡</h3>
+    <div class="wheel-wrapper">
+      <div class="wheel-pointer"></div>
+      <canvas id="wheelCanvas" width="280" height="280"></canvas>
+    </div>
+    <button class="main-button" style="max-width: 260px;" onclick="spinWheel()">Крутить! 🎲</button>
+  </div>
+
+  <!-- ЭКРАН ФИНАЛЬНОГО ПОДТВЕРЖДЕНИЯ -->
+  <div id="success-screen" class="screen hidden">
+    <div class="card-panel" style="text-align: center; padding: 30px 20px;">
+      <div style="font-size: 48px; margin-bottom: 10px;">💌</div>
+      <h2 style="color: #ad1457; font-size: 20px; margin-bottom: 10px;">Свидание выбрано!</h2>
+      <p style="font-size: 14px; color: #555; line-height: 1.5; margin-bottom: 15px;">
+        Вашему парню отправилась информация, ожидайте от него дальнейших указаний! ✨
+      </p>
+      <div style="font-size: 12px; color: #888;">Приложение можно закрывать 💖</div>
+    </div>
+  </div>
+
+  <!-- ЭКРАН СДАЧИ ОТЧЕТА -->
+  <div id="report-screen" class="screen hidden">
+    <div class="card-panel">
+      <h3 style="color: #ad1457; text-align: center; margin-bottom: 15px;">📸 Отчет о свидании</h3>
+      <input type="hidden" id="reportActiveId">
+
+      <div style="margin-bottom: 10px;">
+        <label style="font-size: 12px; font-weight: 600;">Оценка (1-5):</label>
+        <input type="number" id="reportRating" min="1" max="5" value="5" style="width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #f8bbd0; outline: none;">
+      </div>
+
+      <div style="margin-bottom: 10px;">
+        <label style="font-size: 12px; font-weight: 600;">Как все прошло?</label>
+        <textarea id="reportReview" rows="3" style="width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #f8bbd0; outline: none;" placeholder="Твои впечатления..."></textarea>
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="font-size: 12px; font-weight: 600;">Загрузи фото (мин. 3 шт.):</label>
+        <input type="file" id="reportPhotos" multiple accept="image/*" style="width: 100%; font-size: 12px;">
+      </div>
+
+      <button class="main-button" onclick="sendReport()">Отправить отчет 💕</button>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    let selectedFilters = { location: 'all', time: 'any', activity: 'any' };
+    let poolIdeas = [];
+    let currentLikedIdeas = [];
+    let currentTinderIndex = 0;
+    let activeDateId = null;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      if (tg) { tg.ready(); tg.expand(); }
+
+      // Автопроверка: выбрано ли свидание
+      const hasActive = await checkActiveDate();
+      if (hasActive) {
+        showScreen('report-screen');
+      }
+    });
+
+    async function checkActiveDate() {
+      try {
+        const res = await fetch('/api/active-date');
+        const data = await res.json();
+        if (data.has_active) {
+          activeDateId = data.active_id;
+          document.getElementById('reportActiveId').value = activeDateId;
+          return true;
+        }
+      } catch (e) { console.error(e); }
+      return false;
+    }
+
+    // Кнопка теста: моментально уводит на самый первый экран со словом «Я»
+    function testSkipToStart() {
+      showScreen('step-1');
+    }
+
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.classList.add('hidden');
+      });
+      const target = document.getElementById(screenId);
+      target.classList.remove('hidden');
+      target.classList.add('active');
+    }
+
+    function nextStep(current, next) {
+      showScreen(`step-${next}`);
+    }
+
+    function goToCategories(e) {
+      if (e) e.stopPropagation();
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      showScreen('categories-screen');
+    }
+
+    function showRejection(e) {
+      if (e) e.stopPropagation();
+      showScreen('reject-screen');
+    }
+
+    function resetFlow() {
+      showScreen('step-1');
+    }
+
+    function selectChip(groupId, element) {
+      const container = document.getElementById(groupId);
+      container.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('selected'));
+      element.classList.add('selected');
+      const key = groupId.replace('filter-', '');
+      selectedFilters[key] = element.getAttribute('data-value');
+    }
+
+    async function goToSelectionMode() {
+      const res = await fetch(`/api/ideas?category=${selectedFilters.location}`);
+      poolIdeas = await res.json();
+      if (!poolIdeas || poolIdeas.length === 0) {
+        alert("По вашим фильтрам ничего не найдено, берутся все варианты!");
+        const allRes = await fetch('/api/ideas?category=all');
+        poolIdeas = await allRes.json();
+      }
+      showScreen('selection-mode-screen');
+    }
+
+    // Супер рандом: берет абсолютно все карточки из БД и сразу с лучайно выбирает
+    async function triggerSuperRandom() {
+      const res = await fetch('/api/ideas?category=all');
+      const allIdeas = await res.json();
+      if (allIdeas.length > 0) {
+        const randomIdea = allIdeas[Math.floor(Math.random() * allIdeas.length)];
+        selectFinalIdea(randomIdea.id);
+      }
+    }
+
+    /* ----------------------------------------------------
+       СВАЙП-МЕХАНИКА ДЛЯ ТИНДЕРА
+    ---------------------------------------------------- */
+    function startMode(mode) {
+      if (mode === 'tinder') {
+        currentLikedIdeas = [];
+        currentTinderIndex = 0;
+        showScreen('tinder-screen');
+        renderTinderCard();
+      } else if (mode === 'wheel') {
+        showScreen('wheel-screen');
+        initWheel();
+      } else if (mode === 'random') {
+        const randomIdea = poolIdeas[Math.floor(Math.random() * poolIdeas.length)];
+        selectFinalIdea(randomIdea.id);
+      }
+    }
+
+    function renderTinderCard() {
+      const container = document.getElementById('tinderContainer');
+      container.innerHTML = '';
+
+      if (currentTinderIndex >= poolIdeas.length) {
+        if (currentLikedIdeas.length === 0) {
+          alert("Вы ничего не выбрали! Начнем раунд заново.");
+          currentTinderIndex = 0;
+          renderTinderCard();
+        } else if (currentLikedIdeas.length === 1) {
+          selectFinalIdea(currentLikedIdeas[0].id);
+        } else {
+          alert(`Отлично! Выбрано ${currentLikedIdeas.length} вариантов. Голосуем среди них!`);
+          poolIdeas = [...currentLikedIdeas];
+          currentLikedIdeas = [];
+          currentTinderIndex = 0;
+          document.getElementById('tinderRoundTitle').textContent = `Финал (${poolIdeas.length} вар.)`;
+          renderTinderCard();
+        }
+        return;
+      }
+
+      const idea = poolIdeas[currentTinderIndex];
+      const card = document.createElement('div');
+      card.className = 'tinder-card';
+      card.innerHTML = `
+        <div class="swipe-badge badge-yes">ДА 💚</div>
+        <div class="swipe-badge badge-no">НЕТ ❌</div>
+        <img src="${idea.photo_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500'}" class="tinder-img">
+        <div>
+          <h3 style="color: #ad1457; margin-top: 8px;">${idea.title}</h3>
+          <p style="font-size: 13px; color: #666; margin-top: 4px;">${idea.description}</p>
+        </div>
+        <div style="font-size: 11px; color: #888; text-align: center;">Осталось карточек: ${poolIdeas.length - currentTinderIndex}</div>
+      `;
+
+      container.appendChild(card);
+      initSwipeEvents(card);
+    }
+
+    function initSwipeEvents(card) {
+      let startX = 0, startY = 0, currentX = 0, currentY = 0;
+      let isDragging = false;
+
+      const badgeYes = card.querySelector('.badge-yes');
+      const badgeNo = card.querySelector('.badge-no');
+
+      const onStart = (e) => {
+        isDragging = true;
+        startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        startY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        card.style.transition = 'none';
+      };
+
+      const onMove = (e) => {
+        if (!isDragging) return;
+        const x = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const y = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        currentX = x - startX;
+        currentY = y - startY;
+
+        const rotate = currentX * 0.08;
+        card.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) rotate(${rotate}deg)`;
+
+        if (currentX > 30) {
+          badgeYes.style.opacity = Math.min(currentX / 100, 1);
+          badgeNo.style.opacity = 0;
+        } else if (currentX < -30) {
+          badgeNo.style.opacity = Math.min(-currentX / 100, 1);
+          badgeYes.style.opacity = 0;
+        } else {
+          badgeYes.style.opacity = 0;
+          badgeNo.style.opacity = 0;
+        }
+      };
+
+      const onEnd = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        card.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+
+        const threshold = 100;
+
+        if (currentX > threshold) {
+          card.style.transform = `translate3d(500px, ${currentY}px, 0) rotate(45deg)`;
+          card.style.opacity = '0';
+          setTimeout(() => {
+            currentLikedIdeas.push(poolIdeas[currentTinderIndex]);
+            currentTinderIndex++;
+            renderTinderCard();
+          }, 300);
+        } else if (currentX < -threshold) {
+          card.style.transform = `translate3d(-500px, ${currentY}px, 0) rotate(-45deg)`;
+          card.style.opacity = '0';
+          setTimeout(() => {
+            currentTinderIndex++;
+            renderTinderCard();
+          }, 300);
+        } else {
+          card.style.transform = `translate3d(0, 0, 0) rotate(0deg)`;
+          badgeYes.style.opacity = 0;
+          badgeNo.style.opacity = 0;
+        }
+      };
+
+      card.addEventListener('mousedown', onStart);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onEnd);
+
+      card.addEventListener('touchstart', onStart);
+      document.addEventListener('touchmove', onMove);
+      document.addEventListener('touchend', onEnd);
+    }
+
+    /* ----------------------------------------------------
+       ЛОГИКА КОЛЕСА ФОРТУНЫ
+    ---------------------------------------------------- */
+    let startAngle = 0;
+    let isSpinning = false;
+
+    function initWheel() {
+      const canvas = document.getElementById('wheelCanvas');
+      const ctx = canvas.getContext('2d');
+      const numSegments = poolIdeas.length;
+      const anglePerSeg = (2 * Math.PI) / numSegments;
+      const colors = ['#f8bbd0', '#f48fb1', '#f06292', '#fce4ec', '#f8bbd0'];
+
+      ctx.clearRect(0, 0, 280, 280);
+
+      for (let i = 0; i < numSegments; i++) {
+        const angle = startAngle + i * anglePerSeg;
+        ctx.beginPath();
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.moveTo(140, 140);
+        ctx.arc(140, 140, 135, angle, angle + anglePerSeg);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(140, 140);
+        ctx.rotate(angle + anglePerSeg / 2);
+        ctx.fillStyle = '#880e4f';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(poolIdeas[i].title.substring(0, 12) + '..', 45, 4);
+        ctx.restore();
+      }
+    }
+
+    function spinWheel() {
+      if (isSpinning) return;
+      isSpinning = true;
+
+      const spinAngle = Math.random() * 1000 + 2000;
+      let currentSpin = 0;
+
+      const timer = setInterval(() => {
+        currentSpin += 30;
+        startAngle += (Math.PI / 180) * 15;
+        initWheel();
+
+        if (currentSpin >= spinAngle) {
+          clearInterval(timer);
+          isSpinning = false;
+
+          const numSegments = poolIdeas.length;
+          const anglePerSeg = (2 * Math.PI) / numSegments;
+          const normalizedAngle = (2 * Math.PI - (startAngle % (2 * Math.PI))) % (2 * Math.PI);
+          const winningIndex = Math.floor(normalizedAngle / anglePerSeg) % numSegments;
+
+          setTimeout(() => {
+            selectFinalIdea(poolIdeas[winningIndex].id);
+          }, 500);
+        }
+      }, 20);
+    }
+
+    /* ----------------------------------------------------
+       ФИНАЛИЗАЦИЯ И ОТПРАВКА
+    ---------------------------------------------------- */
+    async function selectFinalIdea(ideaId) {
+      const res = await fetch(`/api/select-date/${ideaId}`, { method: 'POST' });
+      if (res.ok) {
+        showScreen('success-screen');
+        confetti({ particleCount: 150, spread: 90 });
+      }
+    }
+
+    async function sendReport() {
+      const activeId = document.getElementById('reportActiveId').value;
+      const rating = document.getElementById('reportRating').value;
+      const review = document.getElementById('reportReview').value;
+      const files = document.getElementById('reportPhotos').files;
+
+      if (files.length < 3) {
+        alert("Загрузите минимум 3 фотографии!");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('active_date_id', activeId);
+      formData.append('rating', rating);
+      formData.append('review_text', review);
+      for (let i = 0; i < files.length; i++) {
+        formData.append('photos', files[i]);
+      }
+
+      const res = await fetch('/api/complete-date', { method: 'POST', body: formData });
+      if (res.ok) {
+        alert("Отчет успешно загружен! Вы прекрасны! ❤️");
+        if (tg) tg.close();
+      }
+    }
+  </script>
+</body>
+</html>
