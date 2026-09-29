@@ -20,12 +20,12 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/")
 async def index_page(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(name="index.html", context={"request": request})
 
 
 @app.get("/admin")
 async def admin_page(request: Request):
-    return templates.TemplateResponse("admin.html", {"request": request})
+    return templates.TemplateResponse(name="admin.html", context={"request": request})
 
 
 @app.get("/api/ideas")

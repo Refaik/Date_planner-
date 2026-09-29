@@ -1,0 +1,6 @@
+.env
+date_planner.db
+.idea/
+__pycache__/
+*.pyc
+.venv/
