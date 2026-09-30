@@ -36,6 +36,8 @@ async def get_ideas(category: str = "all", db: AsyncSession = Depends(get_db)):
 
     result = await db.execute(query)
     ideas = result.scalars().all()
+
+    # Можно возвращать объектами (FastAPI сам их сериализует с новыми полями)
     return ideas
 
 
@@ -116,6 +118,7 @@ async def add_idea(
         location_type: str = Form(...),
         weather_type: str = Form(...),
         requirements_text: str = Form(""),
+        dress_code: Optional[str] = Form(None),  # 👈 Принимаем dress_code от админа
         requires_booking: bool = Form(False),
         photo: Optional[UploadFile] = File(None),
         db: AsyncSession = Depends(get_db)
@@ -133,6 +136,7 @@ async def add_idea(
         location_type=location_type,
         weather_type=weather_type,
         requirements_text=requirements_text,
+        dress_code=dress_code,  # 👈 Сохраняем в базу данных
         requires_booking=requires_booking,
         photo_url=photo_url
     )

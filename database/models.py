@@ -23,6 +23,7 @@ class DateIdea(Base):
     requirements_text = Column(Text, nullable=True)
     requires_booking = Column(Boolean, default=False)
     photo_url = Column(String, nullable=True)
+    dress_code = Column(String, nullable=True)  # 👈 Добавлено поле для одежды
     is_active = Column(Boolean, default=True)
 
 class ActiveDate(Base):
