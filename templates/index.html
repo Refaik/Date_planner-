@@ -39,23 +39,48 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      position: relative;
     }
 
-    /* Фоновый паттерн */
-    .tg-bg-pattern {
+    /* ----------------------------------------------------
+       ДИНАМИЧЕСКИЙ ПАСТЕЛЬНЫЙ ФОН ИЗ ПЛАВАЮЩИХ ЭМОДЗИ
+    ---------------------------------------------------- */
+    .emoji-background {
       position: fixed;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
-      padding: 20px;
-      opacity: 0.15;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
       pointer-events: none;
+      overflow: hidden;
       z-index: 1;
     }
-    .tg-bg-pattern span {
-      font-size: 26px;
-      display: flex; justify-content: center; align-items: center;
+
+    .floating-emoji {
+      position: absolute;
+      bottom: -60px;
+      font-size: 1.5rem;
+      opacity: 0.35;
+      filter: saturate(75%);
+      animation: floatUp linear infinite;
+      will-change: transform, opacity;
+    }
+
+    @keyframes floatUp {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 0;
+      }
+      15% {
+        opacity: 0.45;
+      }
+      85% {
+        opacity: 0.45;
+      }
+      100% {
+        transform: translateY(-110vh) rotate(360deg);
+        opacity: 0;
+      }
     }
 
     /* ----------------------------------------------------
@@ -104,9 +129,10 @@
       font-size: 28px;
       font-weight: 800;
       padding: 16px 24px;
-      background: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.75);
       border-radius: 20px;
-      box-shadow: 0 4px 15px rgba(244, 143, 177, 0.2);
+      box-shadow: 0 4px 15px rgba(244, 143, 177, 0.25);
+      backdrop-filter: blur(4px);
     }
     .text-bubble.highlight { color: var(--accent-deep); font-size: 32px; }
     .text-bubble.multiline { font-size: 22px; line-height: 1.4; }
@@ -202,13 +228,32 @@
       color: white;
     }
 
+    /* Блок предварительной подготовки / дресс-кода */
+    .prep-box {
+      background: #fff0f3;
+      border: 1px dashed var(--accent-pink);
+      border-radius: 14px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      text-align: left;
+      font-size: 12px;
+      color: #880e4f;
+    }
+    .prep-box-title {
+      font-weight: 800;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     /* ----------------------------------------------------
        TINDER SWIPE MECHANISM
     ---------------------------------------------------- */
     .tinder-container {
       position: relative;
-      width: 300px;
-      height: 400px;
+      width: 310px;
+      height: 440px;
       margin: 10px 0;
       display: flex;
       justify-content: center;
@@ -235,7 +280,7 @@
     }
     .tinder-img {
       width: 100%;
-      height: 200px;
+      height: 180px;
       border-radius: 16px;
       object-fit: cover;
       pointer-events: none;
@@ -268,29 +313,51 @@
     }
 
     /* ----------------------------------------------------
-       КОЛЕСО ФОРТУНЫ
+       ПЛАВНОЕ КОЛЕСО ФОРТУНЫ
     ---------------------------------------------------- */
     .wheel-wrapper {
       position: relative;
-      width: 280px;
-      height: 280px;
-      margin: 20px 0;
+      width: 290px;
+      height: 290px;
+      margin: 15px 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     .wheel-pointer {
       position: absolute;
-      top: -10px; left: 50%;
+      top: -12px;
+      left: 50%;
       transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 12px solid transparent;
-      border-right: 12px solid transparent;
-      border-top: 20px solid var(--accent-deep);
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 24px solid var(--accent-deep);
       z-index: 100;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
     }
     #wheelCanvas {
-      width: 100%;
-      height: 100%;
+      width: 280px;
+      height: 280px;
       border-radius: 50%;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      box-shadow: 0 8px 25px rgba(233, 30, 99, 0.2);
+      /* Плавный переход с идеальным замедлением */
+      transition: transform 4s cubic-bezier(0.15, 0.90, 0.20, 1.00);
+      will-change: transform;
+    }
+
+    /* Модальное окно предпросмотра выпавшего результата */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(3px);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
     }
 
     /* Анимации экрана интро */
@@ -309,11 +376,8 @@
   <!-- Кнопка ведет к первому экрану со словом "Я" -->
   <button class="test-skip-btn" onclick="testSkipToStart()">⏮ Тест: к экрану «Я»</button>
 
-  <div class="tg-bg-pattern">
-    <span>🌸</span><span>🎀</span><span>✨</span><span>💖</span>
-    <span>🌷</span><span>🌸</span><span>✨</span><span>🎀</span>
-    <span>💖</span><span>🌷</span><span>🌸</span><span>✨</span>
-  </div>
+  <!-- ДИНАМИЧЕСКИЙ ФОН ИЗ ПЛАВАЮЩИХ ЭМОДЗИ -->
+  <div class="emoji-background" id="emojiBg"></div>
 
   <!-- ШАГ 1: Я -->
   <div id="step-1" class="screen active" onclick="nextStep(1, 2)">
@@ -363,7 +427,7 @@
       <div class="filter-title">⏰ Время суток?</div>
       <div class="chips-group" id="filter-time">
         <button class="chip-btn selected" data-value="any" onclick="selectChip('filter-time', this)">✨ Неважно</button>
-        <button class="chip-btn" data-value="day" onclick="selectChip('filter-time', this)">☀️ День</button>
+        <button class="chip-btn" data-value="day" onclick="selectChip('filter-time', this)">☀️️ День</button>
         <button class="chip-btn" data-value="night" onclick="selectChip('filter-time', this)">🌙 Вечер</button>
       </div>
     </div>
@@ -407,9 +471,27 @@
     <h3 style="color: #ad1457;">Колесо Фортуны 🎡</h3>
     <div class="wheel-wrapper">
       <div class="wheel-pointer"></div>
-      <canvas id="wheelCanvas" width="280" height="280"></canvas>
+      <canvas id="wheelCanvas" width="560" height="560"></canvas>
     </div>
     <button class="main-button" style="max-width: 260px;" onclick="spinWheel()">Крутить! 🎲</button>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО ПРЕДВАРИТЕЛЬНОГО ПРОСМОТРА С ПОДГОТОВКОЙ -->
+  <div id="preview-modal" class="modal-overlay hidden">
+    <div class="card-panel" style="margin-bottom: 0;">
+      <img id="modalImg" src="" style="width: 100%; height: 160px; object-fit: cover; border-radius: 16px; margin-bottom: 10px;">
+      <h3 id="modalTitle" style="color: #ad1457; font-size: 18px; margin-bottom: 6px;"></h3>
+      <p id="modalDesc" style="font-size: 13px; color: #666; margin-bottom: 10px;"></p>
+
+      <div class="prep-box">
+        <div class="prep-box-title">👗 Подготовка & Дресс-код:</div>
+        <div id="modalPrepText">Захвати хорошее настроение!</div>
+      </div>
+
+      <div style="margin-top: 15px; display: flex; gap: 10px;">
+        <button class="main-button" style="padding: 12px;" onclick="confirmSelectedDate()">Подтвердить! 💖</button>
+      </div>
+    </div>
   </div>
 
   <!-- ЭКРАН ФИНАЛЬНОГО ПОДТВЕРЖДЕНИЯ -->
@@ -456,9 +538,14 @@
     let currentLikedIdeas = [];
     let currentTinderIndex = 0;
     let activeDateId = null;
+    let pendingIdeaId = null;
+    let currentWheelRotation = 0;
 
     document.addEventListener("DOMContentLoaded", async () => {
       if (tg) { tg.ready(); tg.expand(); }
+
+      // Создаем плавающий пастельный фон из эмодзи
+      createFloatingEmojis();
 
       // Автопроверка: выбрано ли свидание
       const hasActive = await checkActiveDate();
@@ -466,6 +553,28 @@
         showScreen('report-screen');
       }
     });
+
+    /* ----------------------------------------------------
+       ГЕНЕРАЦИЯ ПАСТЕЛЬНЫХ ПЛАВАЮЩИХ ЭМОДЗИ
+    ---------------------------------------------------- */
+    function createFloatingEmojis() {
+      const bg = document.getElementById('emojiBg');
+      const emojis = ['✨', '🤍', '🌸', '🥂', '🕊️', '🎀', '🧸', '💌', '🕯️', '💄', '👗'];
+      const count = 22;
+
+      for (let i = 0; i < count; i++) {
+        const el = document.createElement('span');
+        el.className = 'floating-emoji';
+        el.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+
+        el.style.left = `${Math.random() * 95}vw`;
+        el.style.animationDuration = `${7 + Math.random() * 9}s`;
+        el.style.animationDelay = `${Math.random() * 6}s`;
+        el.style.fontSize = `${1.1 + Math.random() * 0.9}rem`;
+
+        bg.appendChild(el);
+      }
+    }
 
     async function checkActiveDate() {
       try {
@@ -480,7 +589,6 @@
       return false;
     }
 
-    // Кнопка теста: моментально уводит на самый первый экран со словом «Я»
     function testSkipToStart() {
       showScreen('step-1');
     }
@@ -533,13 +641,12 @@
       showScreen('selection-mode-screen');
     }
 
-    // Супер рандом: берет абсолютно все карточки из БД и сразу с лучайно выбирает
     async function triggerSuperRandom() {
       const res = await fetch('/api/ideas?category=all');
       const allIdeas = await res.json();
       if (allIdeas.length > 0) {
         const randomIdea = allIdeas[Math.floor(Math.random() * allIdeas.length)];
-        selectFinalIdea(randomIdea.id);
+        promptPreviewModal(randomIdea);
       }
     }
 
@@ -554,10 +661,10 @@
         renderTinderCard();
       } else if (mode === 'wheel') {
         showScreen('wheel-screen');
-        initWheel();
+        drawWheelCanvas();
       } else if (mode === 'random') {
         const randomIdea = poolIdeas[Math.floor(Math.random() * poolIdeas.length)];
-        selectFinalIdea(randomIdea.id);
+        promptPreviewModal(randomIdea);
       }
     }
 
@@ -571,7 +678,7 @@
           currentTinderIndex = 0;
           renderTinderCard();
         } else if (currentLikedIdeas.length === 1) {
-          selectFinalIdea(currentLikedIdeas[0].id);
+          promptPreviewModal(currentLikedIdeas[0]);
         } else {
           alert(`Отлично! Выбрано ${currentLikedIdeas.length} вариантов. Голосуем среди них!`);
           poolIdeas = [...currentLikedIdeas];
@@ -584,6 +691,8 @@
       }
 
       const idea = poolIdeas[currentTinderIndex];
+      const prepText = idea.preparation || idea.dress_code || 'Специальной подготовки не требуется ✨';
+
       const card = document.createElement('div');
       card.className = 'tinder-card';
       card.innerHTML = `
@@ -591,10 +700,15 @@
         <div class="swipe-badge badge-no">НЕТ ❌</div>
         <img src="${idea.photo_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500'}" class="tinder-img">
         <div>
-          <h3 style="color: #ad1457; margin-top: 8px;">${idea.title}</h3>
-          <p style="font-size: 13px; color: #666; margin-top: 4px;">${idea.description}</p>
+          <h3 style="color: #ad1457; margin-top: 6px; font-size: 16px;">${idea.title}</h3>
+          <p style="font-size: 12px; color: #666; margin-top: 2px;">${idea.description || ''}</p>
+
+          <div class="prep-box">
+            <div class="prep-box-title">👗 Подготовка:</div>
+            <div>${prepText}</div>
+          </div>
         </div>
-        <div style="font-size: 11px; color: #888; text-align: center;">Осталось карточек: ${poolIdeas.length - currentTinderIndex}</div>
+        <div style="font-size: 11px; color: #888; text-align: center; margin-top: 4px;">Осталось карточек: ${poolIdeas.length - currentTinderIndex}</div>
       `;
 
       container.appendChild(card);
@@ -676,75 +790,116 @@
     }
 
     /* ----------------------------------------------------
-       ЛОГИКА КОЛЕСА ФОРТУНЫ
+       ОБНОВЛЕННАЯ ПЛАВНАЯ ЛОГИКА КОЛЕСА ФОРТУНЫ
     ---------------------------------------------------- */
-    let startAngle = 0;
     let isSpinning = false;
 
-    function initWheel() {
+    function drawWheelCanvas() {
       const canvas = document.getElementById('wheelCanvas');
       const ctx = canvas.getContext('2d');
       const numSegments = poolIdeas.length;
-      const anglePerSeg = (2 * Math.PI) / numSegments;
-      const colors = ['#f8bbd0', '#f48fb1', '#f06292', '#fce4ec', '#f8bbd0'];
+      if (numSegments === 0) return;
 
-      ctx.clearRect(0, 0, 280, 280);
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = centerX - 10;
+      const sliceAngle = (2 * Math.PI) / numSegments;
+      const colors = ['#f8bbd0', '#f48fb1', '#f06292', '#ff80ab', '#fce4ec'];
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       for (let i = 0; i < numSegments; i++) {
-        const angle = startAngle + i * anglePerSeg;
+        const startAngle = i * sliceAngle;
+        const endAngle = startAngle + sliceAngle;
+
+        // Отрисовка сектора
         ctx.beginPath();
         ctx.fillStyle = colors[i % colors.length];
-        ctx.moveTo(140, 140);
-        ctx.arc(140, 140, 135, angle, angle + anglePerSeg);
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
         ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
         ctx.stroke();
 
+        // Отрисовка текста
         ctx.save();
-        ctx.translate(140, 140);
-        ctx.rotate(angle + anglePerSeg / 2);
+        ctx.translate(centerX, centerY);
+        ctx.rotate(startAngle + sliceAngle / 2);
+        ctx.textAlign = 'right';
         ctx.fillStyle = '#880e4f';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.fillText(poolIdeas[i].title.substring(0, 12) + '..', 45, 4);
+        ctx.font = 'bold 22px sans-serif';
+
+        let title = poolIdeas[i].title;
+        if (title.length > 13) title = title.substring(0, 12) + '…';
+        ctx.fillText(title, radius - 30, 8);
         ctx.restore();
       }
+
+      // Центр колеса
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#f8bbd0';
+      ctx.lineWidth = 6;
+      ctx.stroke();
     }
 
     function spinWheel() {
-      if (isSpinning) return;
+      if (isSpinning || poolIdeas.length === 0) return;
       isSpinning = true;
 
-      const spinAngle = Math.random() * 1000 + 2000;
-      let currentSpin = 0;
+      const numSegments = poolIdeas.length;
+      const sliceDeg = 360 / numSegments;
 
-      const timer = setInterval(() => {
-        currentSpin += 30;
-        startAngle += (Math.PI / 180) * 15;
-        initWheel();
+      // Выбираем случайный выигрышный сектор
+      const winningIndex = Math.floor(Math.random() * numSegments);
 
-        if (currentSpin >= spinAngle) {
-          clearInterval(timer);
-          isSpinning = false;
+      // Считаем угол так, чтобы ровно ЦЕНТР сектора встал под верхний указатель (270° или -90°)
+      const centerOfSlice = (winningIndex * sliceDeg) + (sliceDeg / 2);
 
-          const numSegments = poolIdeas.length;
-          const anglePerSeg = (2 * Math.PI) / numSegments;
-          const normalizedAngle = (2 * Math.PI - (startAngle % (2 * Math.PI))) % (2 * Math.PI);
-          const winningIndex = Math.floor(normalizedAngle / anglePerSeg) % numSegments;
+      // Вычисляем угол поворота (5 полных оборотов + смещение до центра сектора)
+      const extraSpins = 5 * 360;
+      const targetDeg = extraSpins + (360 - centerOfSlice) - 90;
 
-          setTimeout(() => {
-            selectFinalIdea(poolIdeas[winningIndex].id);
-          }, 500);
-        }
-      }, 20);
+      // Запоминаем накопленный угол, чтобы каждый следующий спан был плавным
+      currentWheelRotation += targetDeg;
+
+      const canvas = document.getElementById('wheelCanvas');
+      canvas.style.transform = `rotate(${currentWheelRotation}deg)`;
+
+      // По окончании CSS-анимации (4 секунды) открываем карточку результата
+      setTimeout(() => {
+        isSpinning = false;
+        promptPreviewModal(poolIdeas[winningIndex]);
+      }, 4100);
     }
 
     /* ----------------------------------------------------
-       ФИНАЛИЗАЦИЯ И ОТПРАВКА
+       МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТА И ПОДТВЕРЖДЕНИЕ
     ---------------------------------------------------- */
+    function promptPreviewModal(idea) {
+      pendingIdeaId = idea.id;
+      document.getElementById('modalImg').src = idea.photo_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500';
+      document.getElementById('modalTitle').textContent = idea.title;
+      document.getElementById('modalDesc').textContent = idea.description || '';
+      document.getElementById('modalPrepText').textContent = idea.preparation || idea.dress_code || 'Специальной подготовки не требуется ✨';
+
+      document.getElementById('preview-modal').classList.remove('hidden');
+    }
+
+    async function confirmSelectedDate() {
+      if (!pendingIdeaId) return;
+      document.getElementById('preview-modal').classList.add('hidden');
+      await selectFinalIdea(pendingIdeaId);
+    }
+
     async function selectFinalIdea(ideaId) {
       const res = await fetch(`/api/select-date/${ideaId}`, { method: 'POST' });
       if (res.ok) {
         showScreen('success-screen');
-        confetti({ particleCount: 150, spread: 90 });
+        confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
       }
     }
 
