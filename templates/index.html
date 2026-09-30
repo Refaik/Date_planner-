@@ -228,15 +228,15 @@
       color: white;
     }
 
-    /* Блок предварительной подготовки / дресс-кода */
+    /* Блок предварительной подготовки / дресс-кода (показывается только после выбора) */
     .prep-box {
       background: #fff0f3;
       border: 1px dashed var(--accent-pink);
       border-radius: 14px;
-      padding: 10px 12px;
-      margin-top: 10px;
+      padding: 12px;
+      margin-top: 12px;
       text-align: left;
-      font-size: 12px;
+      font-size: 13px;
       color: #880e4f;
     }
     .prep-box-title {
@@ -253,7 +253,7 @@
     .tinder-container {
       position: relative;
       width: 310px;
-      height: 440px;
+      height: 420px;
       margin: 10px 0;
       display: flex;
       justify-content: center;
@@ -280,7 +280,7 @@
     }
     .tinder-img {
       width: 100%;
-      height: 180px;
+      height: 220px;
       border-radius: 16px;
       object-fit: cover;
       pointer-events: none;
@@ -342,7 +342,7 @@
       height: 280px;
       border-radius: 50%;
       box-shadow: 0 8px 25px rgba(233, 30, 99, 0.2);
-      /* Плавный переход с идеальным замедлением */
+      /* Плавный переход с замедлением */
       transition: transform 4s cubic-bezier(0.15, 0.90, 0.20, 1.00);
       will-change: transform;
     }
@@ -427,7 +427,7 @@
       <div class="filter-title">⏰ Время суток?</div>
       <div class="chips-group" id="filter-time">
         <button class="chip-btn selected" data-value="any" onclick="selectChip('filter-time', this)">✨ Неважно</button>
-        <button class="chip-btn" data-value="day" onclick="selectChip('filter-time', this)">☀️️ День</button>
+        <button class="chip-btn" data-value="day" onclick="selectChip('filter-time', this)">☀️ День</button>
         <button class="chip-btn" data-value="night" onclick="selectChip('filter-time', this)">🌙 Вечер</button>
       </div>
     </div>
@@ -476,15 +476,16 @@
     <button class="main-button" style="max-width: 260px;" onclick="spinWheel()">Крутить! 🎲</button>
   </div>
 
-  <!-- МОДАЛЬНОЕ ОКНО ПРЕДВАРИТЕЛЬНОГО ПРОСМОТРА С ПОДГОТОВКОЙ -->
+  <!-- МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТА (ПОКАЗЫВАЕТ ПОДГОТОВКУ И ДРЕСС-КОД ТОЛЬКО ЗДЕСЬ) -->
   <div id="preview-modal" class="modal-overlay hidden">
     <div class="card-panel" style="margin-bottom: 0;">
       <img id="modalImg" src="" style="width: 100%; height: 160px; object-fit: cover; border-radius: 16px; margin-bottom: 10px;">
       <h3 id="modalTitle" style="color: #ad1457; font-size: 18px; margin-bottom: 6px;"></h3>
       <p id="modalDesc" style="font-size: 13px; color: #666; margin-bottom: 10px;"></p>
 
+      <!-- Подготовка отображается ТОЛЬКО ПОСЛЕ того, как свидание выбрано -->
       <div class="prep-box">
-        <div class="prep-box-title">👗 Подготовка & Дресс-код:</div>
+        <div class="prep-box-title">👗 Предварительная подготовка:</div>
         <div id="modalPrepText">Захвати хорошее настроение!</div>
       </div>
 
@@ -544,7 +545,7 @@
     document.addEventListener("DOMContentLoaded", async () => {
       if (tg) { tg.ready(); tg.expand(); }
 
-      // Создаем плавающий пастельный фон из эмодзи
+      // Создаем динамический пастельный фон из эмодзи
       createFloatingEmojis();
 
       // Автопроверка: выбрано ли свидание
@@ -651,7 +652,7 @@
     }
 
     /* ----------------------------------------------------
-       СВАЙП-МЕХАНИКА ДЛЯ ТИНДЕРА
+       СВАЙП-МЕХАНИКА ДЛЯ ТИНДЕРА (БЕЗ ПОДГОТОВКИ НА КАРТОЧКАХ)
     ---------------------------------------------------- */
     function startMode(mode) {
       if (mode === 'tinder') {
@@ -691,7 +692,6 @@
       }
 
       const idea = poolIdeas[currentTinderIndex];
-      const prepText = idea.preparation || idea.dress_code || 'Специальной подготовки не требуется ✨';
 
       const card = document.createElement('div');
       card.className = 'tinder-card';
@@ -700,13 +700,8 @@
         <div class="swipe-badge badge-no">НЕТ ❌</div>
         <img src="${idea.photo_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500'}" class="tinder-img">
         <div>
-          <h3 style="color: #ad1457; margin-top: 6px; font-size: 16px;">${idea.title}</h3>
-          <p style="font-size: 12px; color: #666; margin-top: 2px;">${idea.description || ''}</p>
-
-          <div class="prep-box">
-            <div class="prep-box-title">👗 Подготовка:</div>
-            <div>${prepText}</div>
-          </div>
+          <h3 style="color: #ad1457; margin-top: 8px; font-size: 17px;">${idea.title}</h3>
+          <p style="font-size: 13px; color: #666; margin-top: 4px; line-height: 1.4;">${idea.description || ''}</p>
         </div>
         <div style="font-size: 11px; color: #888; text-align: center; margin-top: 4px;">Осталось карточек: ${poolIdeas.length - currentTinderIndex}</div>
       `;
@@ -856,20 +851,19 @@
       // Выбираем случайный выигрышный сектор
       const winningIndex = Math.floor(Math.random() * numSegments);
 
-      // Считаем угол так, чтобы ровно ЦЕНТР сектора встал под верхний указатель (270° или -90°)
+      // Рассчитываем центр сектора
       const centerOfSlice = (winningIndex * sliceDeg) + (sliceDeg / 2);
 
-      // Вычисляем угол поворота (5 полных оборотов + смещение до центра сектора)
+      // 5 полных оборотов + точное выравнивание под верхнюю стрелку (-90 град)
       const extraSpins = 5 * 360;
       const targetDeg = extraSpins + (360 - centerOfSlice) - 90;
 
-      // Запоминаем накопленный угол, чтобы каждый следующий спан был плавным
       currentWheelRotation += targetDeg;
 
       const canvas = document.getElementById('wheelCanvas');
       canvas.style.transform = `rotate(${currentWheelRotation}deg)`;
 
-      // По окончании CSS-анимации (4 секунды) открываем карточку результата
+      // Ждем завершения анимации и показываем результат
       setTimeout(() => {
         isSpinning = false;
         promptPreviewModal(poolIdeas[winningIndex]);
@@ -884,6 +878,8 @@
       document.getElementById('modalImg').src = idea.photo_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500';
       document.getElementById('modalTitle').textContent = idea.title;
       document.getElementById('modalDesc').textContent = idea.description || '';
+
+      // Подготовка выводится исключительно на этом этапе
       document.getElementById('modalPrepText').textContent = idea.preparation || idea.dress_code || 'Специальной подготовки не требуется ✨';
 
       document.getElementById('preview-modal').classList.remove('hidden');
