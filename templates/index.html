@@ -3,20 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Приглашение 💖</title>
+  <title>Приглашение 💖 — Date Planner</title>
+  <meta name="description" content="Романтическое интерактивное веб-приложение для выбора и планирования идеальных свиданий.">
 
   <!-- Telegram WebApp SDK & Confetti -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
+  <script>
+    const originalAlert = window.alert;
+    window.alert = function(msg) {
+      let toast = document.getElementById('app-toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'app-toast';
+        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#e91e63;color:white;padding:12px 24px;border-radius:20px;font-size:14px;font-weight:700;z-index:99999;box-shadow:0 8px 20px rgba(0,0,0,0.25);transition:opacity 0.3s;text-align:center;max-width:90vw;pointer-events:none;';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      clearTimeout(window.__toastTimeout);
+      window.__toastTimeout = setTimeout(() => { if (toast) toast.style.opacity = '0'; }, 3200);
+      try {
+        if (originalAlert) originalAlert.call(window, msg);
+      } catch (e) {}
+    };
+  </script>
+
   <style>
-    /* ----------------------------------------------------
-       ПАСТЕЛЬНАЯ ЦВЕТОВАЯ ПАЛИТРА И СБРОС
-    ---------------------------------------------------- */
     :root {
-      --bg-color: #fce4ec;         /* Нежно-розовый пастельный */
+      --bg-color: #fce4ec;
       --card-bg: #ffffff;
-      --accent-pink: #f48fb1;     /* Пастельный розовый акцент */
+      --accent-pink: #f48fb1;
       --accent-deep: #e91e63;
       --text-main: #4a4a4a;
       --btn-bg: #f8bbd0;
@@ -42,9 +60,6 @@
       position: relative;
     }
 
-    /* ----------------------------------------------------
-       ФОН ИЗ ПЛАВАЮЩИХ ЭМОДЗИ
-    ---------------------------------------------------- */
     .emoji-background {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -70,12 +85,10 @@
       100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
     }
 
-    /* ----------------------------------------------------
-       ЭКРАНЫ И КНОПКИ
-    ---------------------------------------------------- */
     .screen {
       position: absolute;
       top: 0; left: 0; width: 100vw; height: 100vh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -84,30 +97,55 @@
       z-index: 10;
       box-sizing: border-box;
       text-align: center;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .screen.hidden { display: none !important; }
     .screen.active { display: flex !important; }
 
-    /* Кнопка справки (?) */
-    .info-btn {
+    #categories-screen, #report-screen, #history-screen {
+      justify-content: flex-start;
+      padding-top: 60px;
+      padding-bottom: 32px;
+    }
+    #categories-screen > :first-child, #report-screen > :first-child,
+    #history-screen > :first-child { margin-top: auto; }
+    #categories-screen > :last-child, #report-screen > :last-child,
+    #history-screen > :last-child { margin-bottom: auto; }
+
+    .top-nav-group {
       position: fixed;
-      top: 14px; right: 14px;
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      background: #ffffff;
-      border: 2px solid var(--accent-pink);
-      color: var(--accent-deep);
-      font-size: 18px;
-      font-weight: 800;
+      top: 14px;
+      right: 14px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      cursor: pointer;
+      gap: 8px;
       z-index: 999;
     }
 
-    /* Бабблы интро */
+    .circle-nav-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.45);
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      color: rgba(173, 20, 87, 0.75);
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+    .circle-nav-btn:active {
+      background: rgba(255, 255, 255, 0.75);
+      transform: scale(0.94);
+    }
+
     .text-container {
       display: flex;
       justify-content: center;
@@ -149,22 +187,12 @@
       box-shadow: 0 4px 12px rgba(244, 143, 177, 0.3);
       width: 100%;
       transition: transform 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
     .main-button:active { transform: scale(0.96); }
-
-    .super-random-btn {
-      background: linear-gradient(135deg, #ff80ab, #f50057);
-      color: white;
-      border: 2px solid #ffffff;
-      border-radius: 18px;
-      padding: 14px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(245, 0, 87, 0.3);
-      width: 100%;
-      margin-top: 10px;
-    }
 
     .reject-button {
       background: transparent;
@@ -174,7 +202,6 @@
       cursor: pointer;
     }
 
-    /* Карточки */
     .card-panel {
       background: var(--card-bg);
       border-radius: 24px;
@@ -215,89 +242,158 @@
       color: white;
     }
 
-    /* Блок информации об одежде */
     .prep-box {
       background: #fff0f3;
       border: 1px dashed var(--accent-pink);
       border-radius: 14px;
-      padding: 12px;
+      padding: 14px;
       margin-top: 10px;
       text-align: left;
       font-size: 13px;
       color: #880e4f;
     }
 
-    /* ТИНДЕР */
-    .tinder-container {
-      position: relative;
-      width: 310px;
-      height: 400px;
-      margin: 10px 0;
+    /* Интерактивный звёздный рейтинг: белая -> розовая */
+    .star-rating-container {
       display: flex;
       justify-content: center;
       align-items: center;
+      gap: 12px;
+      margin: 12px 0 6px;
     }
-    .tinder-card {
-      position: absolute;
+    .rating-star {
+      font-size: 34px;
+      cursor: pointer;
+      color: #ffffff;
+      text-shadow: 0 2px 8px rgba(233, 30, 99, 0.28), 0 0 2px #f48fb1;
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease, text-shadow 0.2s ease;
+      user-select: none;
+      display: inline-block;
+    }
+    .rating-star.active {
+      color: #e91e63;
+      text-shadow: 0 4px 14px rgba(233, 30, 99, 0.45);
+      transform: scale(1.18);
+    }
+    .rating-star:hover {
+      transform: scale(1.26);
+    }
+    .rating-label {
+      font-size: 13px;
+      color: #ad1457;
+      font-weight: 600;
+      text-align: center;
+      min-height: 20px;
+      margin-bottom: 8px;
+    }
+
+    .photo-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .photo-preview-item {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1.5px solid #f8bbd0;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+    }
+    .photo-preview-item img {
       width: 100%; height: 100%;
-      background: white;
-      border-radius: 24px;
-      padding: 16px;
+      object-fit: cover;
+    }
+    .photo-count-badge {
+      font-size: 12px;
+      margin-top: 6px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .photo-count-badge.ok { color: #2e7d32; }
+    .photo-count-badge.need-more { color: #c62828; }
+
+    /* Полароидная галерея воспоминаний */
+    .scrapbook-container {
+      width: 100%;
+      max-width: 330px;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-      border: 1px solid #f8bbd0;
-      touch-action: none;
-      cursor: grab;
-      will-change: transform;
+      gap: 18px;
     }
-    .tinder-img {
-      width: 100%; height: 210px;
-      border-radius: 16px;
-      object-fit: cover;
-      pointer-events: none;
-    }
-
-    /* Плашки ДА / НЕТ */
-    .swipe-badge {
-      position: absolute;
-      top: 25px;
-      padding: 6px 16px;
-      border-radius: 12px;
-      font-size: 20px;
-      font-weight: 800;
-      opacity: 0;
-      z-index: 10;
-      pointer-events: none;
-    }
-    .badge-yes { left: 20px; color: #2e7d32; border: 3px solid #2e7d32; transform: rotate(-15deg); }
-    .badge-no { right: 20px; color: #c62828; border: 3px solid #c62828; transform: rotate(15deg); }
-
-    /* КОЛЕСО */
-    .wheel-wrapper {
+    .polaroid-card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 16px 16px 20px;
+      box-shadow: 0 10px 30px rgba(186, 104, 200, 0.14);
+      border: 1px solid rgba(248, 187, 208, 0.8);
       position: relative;
-      width: 290px; height: 290px;
-      margin: 15px 0;
-      display: flex; justify-content: center; align-items: center;
+      text-align: left;
     }
-    .wheel-pointer {
-      position: absolute; top: -12px; left: 50%;
+    .polaroid-tape {
+      position: absolute;
+      top: -10px;
+      left: 50%;
       transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 14px solid transparent;
-      border-right: 14px solid transparent;
-      border-top: 24px solid var(--accent-deep);
-      z-index: 100;
+      width: 80px;
+      height: 22px;
+      background: rgba(248, 187, 208, 0.6);
+      border-radius: 4px;
+      backdrop-filter: blur(2px);
     }
-    #wheelCanvas {
-      width: 280px; height: 280px;
-      border-radius: 50%;
-      box-shadow: 0 8px 25px rgba(233, 30, 99, 0.2);
-      transition: transform 4s cubic-bezier(0.15, 0.90, 0.20, 1.00);
+    .polaroid-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .polaroid-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #ad1457;
+    }
+    .polaroid-date {
+      font-size: 11px;
+      color: #9e7d8c;
+      font-weight: 600;
+    }
+    .polaroid-stars {
+      color: #e91e63;
+      font-size: 14px;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+    .polaroid-review {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.45;
+      font-style: italic;
+      background: #fff8fa;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border-left: 3px solid #f48fb1;
+      margin-bottom: 12px;
+    }
+    .polaroid-gallery {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .polaroid-photo-frame {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid #ffffff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .polaroid-photo-frame img {
+      width: 100%; height: 100%;
+      object-fit: cover;
     }
 
-    /* МОДАЛЬНЫЕ ОКНА */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -309,8 +405,49 @@
       align-items: center;
       padding: 20px;
     }
+    .modal-overlay.hidden { display: none !important; }
 
-    /* Анимация появления экранов с текстом */
+    #info-modal { background: rgba(60, 40, 50, 0.18); }
+    #info-modal .info-panel {
+      background: rgba(255, 255, 255, 0.82);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 22px;
+      padding: 18px 20px;
+      width: 100%;
+      max-width: 320px;
+      text-align: left;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+      animation: infoFade 0.25s ease;
+    }
+    #info-modal .info-title {
+      color: #8d6e7a;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    #info-modal .info-text {
+      font-size: 13px;
+      color: #8a7a80;
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+    #info-modal .info-text b { color: #a1707f; font-weight: 600; }
+    #info-modal .info-close {
+      width: 100%;
+      padding: 9px;
+      background: rgba(244, 143, 177, 0.15);
+      border: none;
+      border-radius: 14px;
+      color: #a1707f;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #info-modal .info-close:active { background: rgba(244, 143, 177, 0.28); }
+
+    @keyframes infoFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     #step-1.active .text-bubble { animation: bounceUp 0.6s ease forwards; }
     #step-2.active .text-bubble { animation: zoomIn 0.6s ease forwards; }
     #step-3.active .text-bubble { animation: popScale 0.6s ease forwards; }
@@ -323,8 +460,11 @@
 </head>
 <body>
 
-  <!-- Кнопка «?» с информацией -->
-  <div class="info-btn" onclick="toggleInfoModal()">?</div>
+  <!-- Верхние кнопки: Галерея воспоминаний (🖼️) и Справка (?) рядом -->
+  <div class="top-nav-group">
+    <div class="circle-nav-btn" onclick="openHistory()" title="Галерея воспоминаний">🖼️</div>
+    <div class="circle-nav-btn" onclick="toggleInfoModal()" title="Как это работает">?</div>
+  </div>
 
   <!-- ФОН -->
   <div class="emoji-background" id="emojiBg"></div>
@@ -360,7 +500,7 @@
     <p style="font-size: 14px; color: #666; margin-top: 4px;">Такой вариант не принимается!</p>
   </div>
 
-  <!-- ЭКРАН 1: ФИЛЬТРЫ -->
+  <!-- ЭКРАН 1: ФИЛЬТРЫ (ТОЛЬКО КНОПКА РАНДОМ) -->
   <div id="categories-screen" class="screen hidden">
     <h3 style="color: #ad1457; margin-bottom: 15px;">Чего тебе хочется? ✨</h3>
 
@@ -392,69 +532,58 @@
       </div>
     </div>
 
-    <!-- Измененная кнопка далее -->
-    <button class="main-button" style="max-width: 340px;" onclick="goToSelectionMode()">ПОГНАЛИ! 🚀</button>
-    <button class="super-random-btn" style="max-width: 340px;" onclick="triggerSuperRandom()">⚡ СУПЕР РАНДОМ ⚡</button>
+    <button class="main-button" style="max-width: 340px;" onclick="chooseRandomDate()">🎲 РАНДОМ</button>
   </div>
 
-  <!-- ЭКРАН 2: ВЫБОР СПОСОБА -->
-  <div id="selection-mode-screen" class="screen hidden">
-    <h3 style="color: #ad1457; margin-bottom: 20px;">Как выберем свидание? 🎯</h3>
-    <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px;">
-      <button class="main-button" onclick="startMode('tinder')">🔥 ТИНДЕР СВАЙПЫ</button>
-      <button class="main-button" onclick="startMode('wheel')">🎡 КОЛЕСО ФОРТУНЫ</button>
-      <button class="main-button" style="background: #f06292; color: white;" onclick="startMode('random')">🎲 СЛУЧАЙНЫЙ ВЫБОР</button>
-    </div>
+  <!-- ЭКРАН ГАЛЕРЕИ ВОСПОМИНАНИЙ -->
+  <div id="history-screen" class="screen hidden">
+    <h3 style="color: #ad1457; margin-bottom: 6px;">🖼️ Галерея воспоминаний</h3>
+    <p style="font-size: 12px; color: #888; margin-bottom: 18px;">Наши самые тёплые моменты на память</p>
+
+    <div id="historyList" class="scrapbook-container"></div>
+
+    <button class="main-button" style="max-width: 320px; margin-top: 18px; padding: 12px; font-size: 14px;" onclick="showScreen('categories-screen')">
+      ← Вернуться назад
+    </button>
   </div>
 
-  <!-- ФОРМАТ 1: ТИНДЕР -->
-  <div id="tinder-screen" class="screen hidden">
-    <h4 id="tinderRoundTitle" style="color: #ad1457; margin-bottom: 2px;">Свайпай варианты!</h4>
-    <p style="font-size: 12px; color: #888; margin-bottom: 8px;">👈 Влево — НЕТ | Вправо — ДА 👉</p>
-    <div class="tinder-container" id="tinderContainer"></div>
-  </div>
-
-  <!-- ФОРМАТ 2: КОЛЕСО -->
-  <div id="wheel-screen" class="screen hidden">
-    <h3 style="color: #ad1457;">Колесо Фортуны 🎡</h3>
-    <div class="wheel-wrapper">
-      <div class="wheel-pointer"></div>
-      <canvas id="wheelCanvas" width="560" height="560"></canvas>
-    </div>
-    <button class="main-button" style="max-width: 260px;" onclick="spinWheel()">Крутить! 🎲</button>
-  </div>
-
-  <!-- ШАГ 6: МОДАЛЬНОЕ ОКНО ПРЕДПРОСМОТРА С ИНФОРМАЦИЕЙ И ОДЕЖДОЙ ИЗ БД -->
+  <!-- МОДАЛЬНОЕ ОКНО: БЕЗ ФОТО СВИДАНИЯ, ТОЛЬКО КРАТКИЙ ДРЕСС-КОД (СЮРПРИЗ) -->
   <div id="preview-modal" class="modal-overlay hidden">
-    <div class="card-panel" style="margin-bottom: 0;">
-      <img id="modalImg" src="" style="width: 100%; height: 160px; object-fit: cover; border-radius: 16px; margin-bottom: 10px;">
-      <h3 id="modalTitle" style="color: #ad1457; font-size: 18px; margin-bottom: 6px;"></h3>
-      <p id="modalDesc" style="font-size: 13px; color: #666; margin-bottom: 10px;"></p>
+    <div class="card-panel" style="margin-bottom: 0; text-align: center;">
+      <div style="font-size: 38px; margin-bottom: 6px;">💌</div>
+      <h3 style="color: #ad1457; font-size: 19px; margin-bottom: 6px;">Свидание выбрано! ✨</h3>
+      <p style="font-size: 12.5px; color: #777; margin-bottom: 14px;">Всё остальное будет приятным сюрпризом 💕</p>
 
-      <!-- Одежда/Дресс-код берутся напрямую из БД -->
-      <div class="prep-box">
-        <div style="font-weight: 800; margin-bottom: 4px;">👗 Дресс-код / Что надеть:</div>
-        <div id="modalPrepText">Захвати хорошее настроение!</div>
+      <div class="prep-box" style="text-align: left;">
+        <div style="font-weight: 800; margin-bottom: 4px; font-size: 13px; color: #880e4f;">👗 Дресс-код:</div>
+        <div id="modalPrepText" style="font-size: 13.5px; font-weight: 600; color: #ad1457; line-height: 1.4;">Захвати хорошее настроение!</div>
       </div>
 
-      <div style="margin-top: 15px;">
-        <!-- КНОПКА ВАУ, КОТОРАЯ ПЕРЕВОДИТ НА НОВЫЙ ЭКРАН -->
+      <div style="margin-top: 18px;">
         <button class="main-button" style="padding: 14px; font-size: 18px; background: #e91e63; color: white;" onclick="confirmSelectedDate()">ВАУ! 💖</button>
       </div>
     </div>
   </div>
 
-  <!-- ШАГ 8: ЭКРАН СДАЧИ ОТЧЕТА И ФОТОК (СЮДА ПЕРЕНОСИТ КНОПКА ВАУ) -->
+  <!-- ЭКРАН СДАЧИ ОТЧЕТА И ФОТОК -->
   <div id="report-screen" class="screen hidden">
     <div class="card-panel">
-      <h3 style="color: #ad1457; text-align: center; margin-bottom: 10px;">📸 Отчет о свидании</h3>
-      <p style="font-size: 12px; color: #666; margin-bottom: 15px; text-align: center;">Загрузи минимум 3 фотографии после того, как проведете свидание!</p>
+      <h3 style="color: #ad1457; text-align: center; margin-bottom: 8px;">📸 Отчет о свидании</h3>
+      <p style="font-size: 12px; color: #666; margin-bottom: 14px; text-align: center;">Загрузите минимум 3 фотографии после того, как проведёте свидание!</p>
 
       <input type="hidden" id="reportActiveId">
 
-      <div style="margin-bottom: 10px;">
-        <label style="font-size: 12px; font-weight: 600;">Оценка свидания (1-5):</label>
-        <input type="number" id="reportRating" min="1" max="5" value="5" style="width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #f8bbd0; outline: none; margin-top: 4px;">
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 12px; font-weight: 700; color: #555;">Оценка свидания:</label>
+        <div class="star-rating-container" id="starRating">
+          <span class="rating-star active" data-val="1" onclick="setRating(1)">★</span>
+          <span class="rating-star active" data-val="2" onclick="setRating(2)">★</span>
+          <span class="rating-star active" data-val="3" onclick="setRating(3)">★</span>
+          <span class="rating-star active" data-val="4" onclick="setRating(4)">★</span>
+          <span class="rating-star active" data-val="5" onclick="setRating(5)">★</span>
+        </div>
+        <div class="rating-label" id="ratingLabel">5/5 — Незабываемо! 🥰</div>
+        <input type="hidden" id="reportRating" value="5">
       </div>
 
       <div style="margin-bottom: 10px;">
@@ -464,7 +593,9 @@
 
       <div style="margin-bottom: 15px;">
         <label style="font-size: 12px; font-weight: 600;">Загрузи фото (мин. 3 шт.):</label>
-        <input type="file" id="reportPhotos" multiple accept="image/*" style="width: 100%; font-size: 12px; margin-top: 4px;">
+        <input type="file" id="reportPhotos" multiple accept="image/*" style="width: 100%; font-size: 12px; margin-top: 4px;" onchange="handlePhotoSelect(event)">
+        <div id="photoCountBadge" class="photo-count-badge need-more">Выбрано 0 фото (нужно минимум 3)</div>
+        <div class="photo-preview-grid" id="photoPreviewGrid"></div>
       </div>
 
       <button class="main-button" onclick="sendReport()">Отправить отчет 💕</button>
@@ -473,15 +604,15 @@
 
   <!-- МОДАЛЬНОЕ ОКНО СПРАВКИ (?) -->
   <div id="info-modal" class="modal-overlay hidden" onclick="toggleInfoModal()">
-    <div class="card-panel" onclick="event.stopPropagation()">
-      <h3 style="color: #ad1457; margin-bottom: 8px;">ℹ️ Как это работает?</h3>
-      <p style="font-size: 13px; color: #555; line-height: 1.5; margin-bottom: 8px;">
+    <div class="info-panel" onclick="event.stopPropagation()">
+      <div class="info-title">Как это работает?</div>
+      <div class="info-text">
         1. Проходишь меню выбора и настраиваешь желаемые фильтры.<br>
-        2. Выбираешь свидание удобным способом (Тиндер, Колесо или Рандом).<br>
-        3. Нажимаешь кнопку <b>ВАУ!</b> для подтверждения.<br>
-        4. После свидания возвращаешься сюда и загружаешь 3 классные фотографии в отчет! 📸
-      </p>
-      <button class="main-button" style="padding: 8px; margin-top: 8px;" onclick="toggleInfoModal()">Понятно! ✨</button>
+        2. Нажимаешь кнопку <b>🎲 РАНДОМ</b> — свидание подберётся автоматически, а его детали останутся приятным сюрпризом!<br>
+        3. Смотришь подходящий дресс-код и жмёшь <b>ВАУ!</b>.<br>
+        4. После свидания загружаешь 3 фото в отчёт — они навсегда останутся в вашей <b>Галерее воспоминаний 🖼️</b>!
+      </div>
+      <button class="info-close" onclick="toggleInfoModal()">Понятно</button>
     </div>
   </div>
 
@@ -489,15 +620,22 @@
     const tg = window.Telegram?.WebApp;
     let selectedFilters = { location: 'all', time: 'any', activity: 'any' };
     let poolIdeas = [];
-    let currentLikedIdeas = [];
-    let currentTinderIndex = 0;
     let pendingIdeaId = null;
-    let currentWheelRotation = 0;
 
     document.addEventListener("DOMContentLoaded", () => {
       if (tg) { tg.ready(); tg.expand(); }
       createFloatingEmojis();
     });
+
+    const fireConfetti = (() => {
+      try {
+        const c = document.createElement('canvas');
+        c.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2000';
+        document.body.appendChild(c);
+        const inst = confetti.create(c, { resize: true, useWorker: false });
+        return (o) => inst(o);
+      } catch (e) { return () => {}; }
+    })();
 
     function createFloatingEmojis() {
       const bg = document.getElementById('emojiBg');
@@ -523,15 +661,17 @@
         s.classList.add('hidden');
       });
       const target = document.getElementById(screenId);
-      target.classList.remove('hidden');
-      target.classList.add('active');
+      if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('active');
+      }
     }
 
     function nextStep(current, next) { showScreen(`step-${next}`); }
 
     function goToCategories(e) {
       if (e) e.stopPropagation();
-      confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+      fireConfetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
       showScreen('categories-screen');
     }
 
@@ -550,202 +690,65 @@
       selectedFilters[key] = element.getAttribute('data-value');
     }
 
-    async function goToSelectionMode() {
+    async function loadIdeas(filters = selectedFilters) {
+      const loc = filters.location || 'all';
+      const time = filters.time || 'any';
+      const act = filters.activity || 'any';
+      const url = `/api/ideas?location=${encodeURIComponent(loc)}&time=${encodeURIComponent(time)}&activity=${encodeURIComponent(act)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Сервер ответил ${res.status}`);
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Неверный формат ответа сервера');
+      return data;
+    }
+
+    function showError(msg) {
+      if (tg && tg.showAlert) tg.showAlert(msg); else alert(msg);
+    }
+
+    function formatShortDressCode(text) {
+      if (!text) return 'Свободный / комфортный стиль ✨';
+      let clean = text.trim();
+      const parts = clean.split(/[.;\n]/);
+      if (parts.length > 0 && parts[0].trim().length > 3) {
+        clean = parts[0].trim();
+      }
+      if (clean.length > 45) {
+        clean = clean.substring(0, 42) + '…';
+      }
+      return clean;
+    }
+
+    async function chooseRandomDate() {
       try {
-        const res = await fetch(`/api/ideas?category=${selectedFilters.location}`);
-        poolIdeas = await res.json();
-      } catch(e) {
-        poolIdeas = [];
-      }
-      if (!poolIdeas || poolIdeas.length === 0) {
-        const allRes = await fetch('/api/ideas?category=all');
-        poolIdeas = await allRes.json();
-      }
-      showScreen('selection-mode-screen');
-    }
-
-    async function triggerSuperRandom() {
-      const res = await fetch('/api/ideas?category=all');
-      const allIdeas = await res.json();
-      if (allIdeas.length > 0) {
-        const randomIdea = allIdeas[Math.floor(Math.random() * allIdeas.length)];
-        promptPreviewModal(randomIdea);
-      }
-    }
-
-    function startMode(mode) {
-      if (mode === 'tinder') {
-        currentLikedIdeas = [];
-        currentTinderIndex = 0;
-        showScreen('tinder-screen');
-        renderTinderCard();
-      } else if (mode === 'wheel') {
-        showScreen('wheel-screen');
-        drawWheelCanvas();
-      } else if (mode === 'random') {
-        const randomIdea = poolIdeas[Math.floor(Math.random() * poolIdeas.length)];
-        promptPreviewModal(randomIdea);
-      }
-    }
-
-    function renderTinderCard() {
-      const container = document.getElementById('tinderContainer');
-      container.innerHTML = '';
-
-      if (currentTinderIndex >= poolIdeas.length) {
-        if (currentLikedIdeas.length === 0) {
-          alert("Вы ничего не выбрали! Начнем заново.");
-          currentTinderIndex = 0;
-          renderTinderCard();
-        } else if (currentLikedIdeas.length === 1) {
-          promptPreviewModal(currentLikedIdeas[0]);
-        } else {
-          poolIdeas = [...currentLikedIdeas];
-          currentLikedIdeas = [];
-          currentTinderIndex = 0;
-          document.getElementById('tinderRoundTitle').textContent = `Финал (${poolIdeas.length} вар.)`;
-          renderTinderCard();
+        poolIdeas = await loadIdeas(selectedFilters);
+        if (poolIdeas.length === 0) {
+          poolIdeas = await loadIdeas({ location: selectedFilters.location, time: 'any', activity: 'any' });
         }
+        if (poolIdeas.length === 0) {
+          poolIdeas = await loadIdeas({ location: 'all', time: 'any', activity: 'any' });
+        }
+      } catch (e) {
+        console.error(e);
+        showError('Не получилось загрузить варианты свиданий 😔\n' + e.message);
+        return;
+      }
+      if (poolIdeas.length === 0) {
+        showError('Пока нет доступных вариантов свидания.');
         return;
       }
 
-      const idea = poolIdeas[currentTinderIndex];
-      const card = document.createElement('div');
-      card.className = 'tinder-card';
-      card.innerHTML = `
-        <div class="swipe-badge badge-yes">ДА 💚</div>
-        <div class="swipe-badge badge-no">НЕТ ❌</div>
-        <img src="${idea.photo_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500'}" class="tinder-img">
-        <div>
-          <h3 style="color: #ad1457; margin-top: 8px; font-size: 17px;">${idea.title}</h3>
-          <p style="font-size: 13px; color: #666; margin-top: 4px; line-height: 1.4;">${idea.description || ''}</p>
-        </div>
-        <div style="font-size: 11px; color: #888; text-align: center; margin-top: 4px;">Осталось: ${poolIdeas.length - currentTinderIndex}</div>
-      `;
-
-      container.appendChild(card);
-      initSwipeEvents(card);
+      const randomIdea = poolIdeas[Math.floor(Math.random() * poolIdeas.length)];
+      promptPreviewModal(randomIdea);
     }
 
-    function initSwipeEvents(card) {
-      let startX = 0, currentX = 0, isDragging = false;
-      const badgeYes = card.querySelector('.badge-yes');
-      const badgeNo = card.querySelector('.badge-no');
-
-      const onStart = (e) => {
-        isDragging = true;
-        startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-        card.style.transition = 'none';
-      };
-
-      const onMove = (e) => {
-        if (!isDragging) return;
-        const x = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-        currentX = x - startX;
-        card.style.transform = `translate3d(${currentX}px, 0, 0) rotate(${currentX * 0.08}deg)`;
-
-        if (currentX > 30) { badgeYes.style.opacity = Math.min(currentX / 100, 1); badgeNo.style.opacity = 0; }
-        else if (currentX < -30) { badgeNo.style.opacity = Math.min(-currentX / 100, 1); badgeYes.style.opacity = 0; }
-        else { badgeYes.style.opacity = 0; badgeNo.style.opacity = 0; }
-      };
-
-      const onEnd = () => {
-        if (!isDragging) return;
-        isDragging = false;
-        card.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
-
-        if (currentX > 100) {
-          card.style.transform = `translate3d(500px, 0, 0) rotate(45deg)`;
-          card.style.opacity = '0';
-          setTimeout(() => { currentLikedIdeas.push(poolIdeas[currentTinderIndex]); currentTinderIndex++; renderTinderCard(); }, 300);
-        } else if (currentX < -100) {
-          card.style.transform = `translate3d(-500px, 0, 0) rotate(-45deg)`;
-          card.style.opacity = '0';
-          setTimeout(() => { currentTinderIndex++; renderTinderCard(); }, 300);
-        } else {
-          card.style.transform = `translate3d(0, 0, 0) rotate(0deg)`;
-          badgeYes.style.opacity = 0; badgeNo.style.opacity = 0;
-        }
-      };
-
-      card.addEventListener('mousedown', onStart);
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onEnd);
-      card.addEventListener('touchstart', onStart);
-      document.addEventListener('touchmove', onMove);
-      document.addEventListener('touchend', onEnd);
-    }
-
-    function drawWheelCanvas() {
-      const canvas = document.getElementById('wheelCanvas');
-      const ctx = canvas.getContext('2d');
-      const numSegments = poolIdeas.length;
-      if (numSegments === 0) return;
-
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const radius = centerX - 10;
-      const sliceAngle = (2 * Math.PI) / numSegments;
-      const colors = ['#f8bbd0', '#f48fb1', '#f06292', '#ff80ab', '#fce4ec'];
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      for (let i = 0; i < numSegments; i++) {
-        const startAngle = i * sliceAngle;
-        const endAngle = startAngle + sliceAngle;
-
-        ctx.beginPath();
-        ctx.fillStyle = colors[i % colors.length];
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(startAngle + sliceAngle / 2);
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#880e4f';
-        ctx.font = 'bold 22px sans-serif';
-        let title = poolIdeas[i].title;
-        if (title.length > 13) title = title.substring(0, 12) + '…';
-        ctx.fillText(title, radius - 30, 8);
-        ctx.restore();
-      }
-    }
-
-    function spinWheel() {
-      if (poolIdeas.length === 0) return;
-      const numSegments = poolIdeas.length;
-      const sliceDeg = 360 / numSegments;
-      const winningIndex = Math.floor(Math.random() * numSegments);
-      const centerOfSlice = (winningIndex * sliceDeg) + (sliceDeg / 2);
-
-      currentWheelRotation += (5 * 360) + (360 - centerOfSlice) - 90;
-      const canvas = document.getElementById('wheelCanvas');
-      canvas.style.transform = `rotate(${currentWheelRotation}deg)`;
-
-      setTimeout(() => {
-        promptPreviewModal(poolIdeas[winningIndex]);
-      }, 4100);
-    }
-
-    /* ПОКАЗ ИНФОРМАЦИИ И ОДЕЖДЫ ДЛЯ ВЫБРАННОГО СВИДАНИЯ */
     function promptPreviewModal(idea) {
       pendingIdeaId = idea.id;
-      document.getElementById('modalImg').src = idea.photo_url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500';
-      document.getElementById('modalTitle').textContent = idea.title;
-      document.getElementById('modalDesc').textContent = idea.description || '';
-
-      // Вытягиваем одежду / подготовку из поля БД (dress_code или preparation)
-      document.getElementById('modalPrepText').textContent = idea.dress_code || idea.preparation || 'Свободный/комфортный стиль одежды ✨';
-
+      const shortDress = formatShortDressCode(idea.dress_code || idea.preparation);
+      document.getElementById('modalPrepText').textContent = shortDress;
       document.getElementById('preview-modal').classList.remove('hidden');
     }
 
-    /* НАЖАТИЕ НА КНОПКУ ВАУ */
     async function confirmSelectedDate() {
       if (!pendingIdeaId) return;
       document.getElementById('preview-modal').classList.add('hidden');
@@ -753,13 +756,118 @@
       try {
         const res = await fetch(`/api/select-date/${pendingIdeaId}`, { method: 'POST' });
         const data = await res.json();
-        if (data.active_id) {
-          document.getElementById('reportActiveId').value = data.active_id;
+        const newId = data.active_date_id || data.active_id;
+        if (newId) {
+          document.getElementById('reportActiveId').value = newId;
         }
       } catch(e) { console.error(e); }
 
-      confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+      fireConfetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
       showScreen('report-screen');
+    }
+
+    const ratingLabels = {
+      1: "1/5 — Могло быть лучше 🥺",
+      2: "2/5 — Были нюансы 🤔",
+      3: "3/5 — Приятно провели время 🙂",
+      4: "4/5 — Очень понравилось! ✨",
+      5: "5/5 — Незабываемо! 🥰"
+    };
+
+    function setRating(val) {
+      document.getElementById('reportRating').value = val;
+      const stars = document.querySelectorAll('.rating-star');
+      stars.forEach(s => {
+        const starVal = parseInt(s.getAttribute('data-val'), 10);
+        if (starVal <= val) {
+          s.classList.add('active');
+        } else {
+          s.classList.remove('active');
+        }
+      });
+      document.getElementById('ratingLabel').textContent = ratingLabels[val] || '';
+    }
+
+    function handlePhotoSelect(e) {
+      const files = e.target.files;
+      const grid = document.getElementById('photoPreviewGrid');
+      const badge = document.getElementById('photoCountBadge');
+      grid.innerHTML = '';
+
+      if (files.length >= 3) {
+        badge.className = 'photo-count-badge ok';
+        badge.textContent = `Загружено ${files.length} фото ✅ Отличный набор!`;
+      } else {
+        badge.className = 'photo-count-badge need-more';
+        badge.textContent = `Выбрано ${files.length} фото (нужно минимум 3)`;
+      }
+
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const item = document.createElement('div');
+          item.className = 'photo-preview-item';
+          item.innerHTML = `<img src="${event.target.result}">`;
+          grid.appendChild(item);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function openHistory() {
+      const list = document.getElementById('historyList');
+      list.innerHTML = '<div style="color: #ad1457; text-align: center; font-weight: 600;">Открываем галерею... 🌸</div>';
+      showScreen('history-screen');
+
+      try {
+        const res = await fetch('/api/history');
+        const memories = await res.json();
+        list.innerHTML = '';
+
+        if (!memories || memories.length === 0) {
+          list.innerHTML = `
+            <div class="polaroid-card" style="text-align: center; padding: 28px 16px;">
+              <div style="font-size: 32px; margin-bottom: 8px;">💌</div>
+              <h4 style="color: #ad1457; margin-bottom: 6px;">Галерея пока пуста</h4>
+              <p style="font-size: 13px; color: #777; line-height: 1.5;">
+                Сходите на ваше первое свидание и загрузите 3 фотографии в отчёт — здесь появятся ваши полароидные снимки! 💕
+              </p>
+            </div>
+          `;
+          return;
+        }
+
+        memories.forEach((m) => {
+          const card = document.createElement('div');
+          card.className = 'polaroid-card';
+          const starsCount = m.rating || 5;
+          const starsHtml = '★'.repeat(starsCount) + '☆'.repeat(Math.max(0, 5 - starsCount));
+          const dateStr = new Date(m.selected_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+          let photosHtml = '';
+          if (m.photos && m.photos.length > 0) {
+            photosHtml = '<div class="polaroid-gallery">' + m.photos.map(p => `
+              <div class="polaroid-photo-frame">
+                <img src="${p}">
+              </div>
+            `).join('') + '</div>';
+          }
+
+          card.innerHTML = `
+            <div class="polaroid-tape"></div>
+            <div class="polaroid-header">
+              <span class="polaroid-title">${m.title}</span>
+              <span class="polaroid-date">${dateStr}</span>
+            </div>
+            <div class="polaroid-stars">${starsHtml}</div>
+            ${m.review_text ? `<div class="polaroid-review">«${m.review_text}»</div>` : ''}
+            ${photosHtml}
+          `;
+          list.appendChild(card);
+        });
+      } catch (e) {
+        list.innerHTML = '<div style="color: #c62828;">Ошибка при загрузке галереи</div>';
+      }
     }
 
     async function sendReport() {
@@ -781,10 +889,17 @@
         formData.append('photos', files[i]);
       }
 
-      const res = await fetch('/api/complete-date', { method: 'POST', body: formData });
-      if (res.ok) {
-        alert("Отчет успешно отправлен! ❤️");
-        if (tg) tg.close();
+      try {
+        const res = await fetch('/api/complete-date', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error(`Сервер ответил ${res.status}`);
+        fireConfetti({ particleCount: 200, spread: 90, origin: { y: 0.5 } });
+        showError('Отчет успешно отправлен и сохранён в галерею! ❤️');
+        setTimeout(() => {
+          openHistory();
+        }, 1000);
+      } catch (e) {
+        console.error(e);
+        showError('Не получилось отправить отчет 😔\n' + e.message);
       }
     }
   </script>

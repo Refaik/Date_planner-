@@ -3,85 +3,114 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Панель Парня</title>
+  <title>Панель Парня — Добавление свиданий</title>
   <link rel="stylesheet" href="/static/css/style.css">
-  <style>
-    body {
-      overflow-y: auto !important;
-      padding: 20px 10px;
-    }
-  </style>
 </head>
 <body>
   <div class="form-card">
-    <h2 style="font-size: 20px; font-weight: 800; color: #ff1493; margin-bottom: 15px; text-align: center;">➕ Добавить свидание</h2>
+    <h2 style="font-size: 20px; font-weight: 800; color: #ad1457; margin-bottom: 15px; text-align: center;">➕ Добавить свидание</h2>
     <form id="adminForm" onsubmit="saveIdea(event)">
       <div class="form-group">
         <label>Название свидания:</label>
-        <input type="text" id="title" class="form-control" required placeholder="Например: Поход в планетарий">
+        <input type="text" id="title" class="form-control" required placeholder="Например: Ужин в ресторане «Солома»">
       </div>
 
       <div class="form-group">
         <label>Описание:</label>
-        <textarea id="description" class="form-control" rows="3" required placeholder="Подробное описание..."></textarea>
+        <textarea id="description" class="form-control" rows="3" required placeholder="Подробное описание для вас..."></textarea>
       </div>
 
       <div class="form-group">
         <label>Локация:</label>
         <select id="location_type" class="form-control">
-          <option value="home">Дома 🏠</option>
           <option value="outside">Вне дома 🌆</option>
+          <option value="home">Дома 🏠</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label>Погода:</label>
-        <select id="weather_type" class="form-control">
-          <option value="any">Любая 🌈</option>
-          <option value="sunny">Солнечно ☀️</option>
-          <option value="indoor">В помещении 🏢</option>
+        <label>Время суток:</label>
+        <select id="time_type" class="form-control">
+          <option value="any">Любое ✨</option>
+          <option value="night">Вечер 🌙</option>
+          <option value="day">День ☀️</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label>Чек-лист (что купить / подготовить):</label>
-        <textarea id="requirements_text" class="form-control" rows="2" placeholder="1. Купить билеты&#10;2. Взять цветы"></textarea>
+        <label>Вид активности:</label>
+        <select id="activity_type" class="form-control">
+          <option value="food">🍕 Еда и рестораны</option>
+          <option value="relax">🛋️ Уют и релакс</option>
+          <option value="active">🏃 Движ и спорт</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>👗 Дресс-код (что увидит девушка):</label>
+        <input type="text" id="dress_code" class="form-control" placeholder="Например: Нарядное вечернее платье / стильный образ ✨">
+      </div>
+
+      <div class="form-group">
+        <label>📍 Ссылка на Яндекс.Карты / адрес:</label>
+        <input type="text" id="place_link" class="form-control" placeholder="https://yandex.ru/maps/... (Белгород, ул. ...)">
+      </div>
+
+      <div class="form-group">
+        <label>🛒 Что подготовить / чек-лист:</label>
+        <textarea id="requirements_text" class="form-control" rows="2" placeholder="Забронировать столик, купить цветы"></textarea>
       </div>
 
       <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
-        <input type="checkbox" id="requires_booking" style="width: 18px; height: 18px;">
-        <label for="requires_booking" style="margin: 0;">Нужна предварительная бронь</label>
+        <input type="checkbox" id="requires_booking" style="width: 18px; height: 18px; accent-color: #e91e63;">
+        <label for="requires_booking" style="margin: 0; cursor: pointer;">Нужна предварительная бронь</label>
       </div>
 
       <div class="form-group">
-        <label>Обложка (фото):</label>
-        <input type="file" id="photo" accept="image/*" class="form-control">
+        <label>Фотография для карточки:</label>
+        <input type="file" id="photo" class="form-control" accept="image/*">
       </div>
 
-      <button type="submit" class="main-button" style="width: 100%; margin-top: 10px;">
-        Сохранить идею ✨
-      </button>
+      <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Сохранить в базу 💾</button>
     </form>
+    <div id="statusMsg" style="text-align: center; margin-top: 15px; font-weight: bold;"></div>
   </div>
 
   <script>
     async function saveIdea(e) {
       e.preventDefault();
+      const status = document.getElementById('statusMsg');
+      status.textContent = 'Сохраняем...';
+      status.style.color = '#333';
+
       const formData = new FormData();
       formData.append('title', document.getElementById('title').value);
       formData.append('description', document.getElementById('description').value);
       formData.append('location_type', document.getElementById('location_type').value);
-      formData.append('weather_type', document.getElementById('weather_type').value);
+      formData.append('time_type', document.getElementById('time_type').value);
+      formData.append('activity_type', document.getElementById('activity_type').value);
+      formData.append('dress_code', document.getElementById('dress_code').value);
+      formData.append('place_link', document.getElementById('place_link').value);
       formData.append('requirements_text', document.getElementById('requirements_text').value);
       formData.append('requires_booking', document.getElementById('requires_booking').checked);
 
-      const photo = document.getElementById('photo').files[0];
-      if (photo) formData.append('photo', photo);
+      const photoInput = document.getElementById('photo');
+      if (photoInput.files.length > 0) {
+        formData.append('photo', photoInput.files[0]);
+      }
 
-      const res = await fetch('/api/admin/ideas', { method: 'POST', body: formData });
-      if (res.ok) {
-        alert("Идея успешно добавлена!");
-        location.reload();
+      try {
+        const res = await fetch('/api/admin/ideas', {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+        status.textContent = '✅ Свидание успешно добавлено в базу!';
+        status.style.color = '#2e7d32';
+        document.getElementById('adminForm').reset();
+      } catch (err) {
+        status.textContent = '❌ Ошибка: ' + err.message;
+        status.style.color = '#c62828';
       }
     }
   </script>
