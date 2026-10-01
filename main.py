@@ -2,10 +2,8 @@ import os
 import uuid
 import aiofiles
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from starlette.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
@@ -17,7 +15,6 @@ app = FastAPI(title="Date Planner WebApp")
 
 os.makedirs("static/uploads", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 
 @app.on_event("startup")
@@ -25,16 +22,18 @@ async def on_startup():
     await init_db()
 
 
-@app.get("/", response_class=HTMLResponse)
-async def get_index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+# Отдача HTML страниц через FileResponse без ошибок Jinja2
+@app.get("/", response_class=FileResponse)
+async def get_index():
+    return FileResponse("templates/index.html")
 
 
-@app.get("/admin", response_class=HTMLResponse)
-async def get_admin(request: Request):
-    return templates.TemplateResponse("admin.html", {"request": request})
+@app.get("/admin", response_class=FileResponse)
+async def get_admin():
+    return FileResponse("templates/admin.html")
 
 
+# API получения свиданий с фильтрами
 @app.get("/api/ideas")
 async def get_ideas(
         location: str = "all",
@@ -59,6 +58,7 @@ async def get_ideas(
     return ideas
 
 
+# Выбор свидания девушкой
 @app.post("/api/select-date/{idea_id}")
 async def select_date(idea_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(DateIdea).where(DateIdea.id == idea_id))
@@ -87,6 +87,7 @@ async def select_date(idea_id: int, db: AsyncSession = Depends(get_db)):
     return {"status": "success", "active_date_id": active_date.id, "active_id": active_date.id}
 
 
+# Проверка активного выбранного свидания
 @app.get("/api/active-date")
 async def get_active_date(db: AsyncSession = Depends(get_db)):
     query = select(ActiveDate).where(ActiveDate.status == "chosen").order_by(desc(ActiveDate.id))
@@ -105,6 +106,7 @@ async def get_active_date(db: AsyncSession = Depends(get_db)):
     }
 
 
+# Сдача отчета о свидании и фоток
 @app.post("/api/complete-date")
 async def complete_date(
         active_date_id: int = Form(...),
@@ -146,6 +148,7 @@ async def complete_date(
     return {"status": "success"}
 
 
+# Получение истории для альбома воспоминаний
 @app.get("/api/history")
 async def get_history(db: AsyncSession = Depends(get_db)):
     query = select(ActiveDate).where(ActiveDate.status == "completed").order_by(desc(ActiveDate.id))
@@ -170,12 +173,15 @@ async def get_history(db: AsyncSession = Depends(get_db)):
     return memories
 
 
+# Добавление нового свидания через панель парня
 @app.post("/api/admin/ideas")
 async def admin_add_idea(
         title: str = Form(...),
         description: str = Form(...),
         location_type: str = Form("home"),
         weather_type: str = Form("any"),
+        time_type: str = Form("any"),
+        activity_type: str = Form("food"),
         requirements_text: str = Form(""),
         dress_code: str = Form(""),
         requires_booking: bool = Form(False),
@@ -198,6 +204,8 @@ async def admin_add_idea(
         description=description,
         location_type=location_type,
         weather_type=weather_type,
+        time_type=time_type,
+        activity_type=activity_type,
         requirements_text=requirements_text,
         dress_code=dress_code,
         requires_booking=requires_booking,

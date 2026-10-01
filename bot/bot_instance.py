@@ -10,9 +10,16 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher()
 
+# Гарантированный базовый URL вашего сервиса на Render
+DEFAULT_WEBAPP_URL = "https://date-planner-9vny.onrender.com"
+
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
-    webapp_url = settings.BASE_URL
+    # Если переменная BASE_URL не задана в настройках Render, используем DEFAULT_WEBAPP_URL
+    webapp_url = settings.BASE_URL.strip() if settings.BASE_URL else DEFAULT_WEBAPP_URL
+    if not webapp_url.startswith("http"):
+        webapp_url = f"https://{webapp_url}"
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Выбрать свидание 💖", web_app=WebAppInfo(url=webapp_url))]
     ])
@@ -23,10 +30,15 @@ async def cmd_start(message: types.Message):
 
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
-    if message.from_user.id != settings.ADMIN_TELEGRAM_ID:
+    if settings.ADMIN_TELEGRAM_ID and message.from_user.id != settings.ADMIN_TELEGRAM_ID:
         await message.answer("Доступ только для администратора.")
         return
-    admin_url = f"{settings.BASE_URL}/admin"
+
+    base = settings.BASE_URL.strip() if settings.BASE_URL else DEFAULT_WEBAPP_URL
+    if not base.startswith("http"):
+        base = f"https://{base}"
+    admin_url = f"{base}/admin"
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Панель добавления свиданий ➕", web_app=WebAppInfo(url=admin_url))]
     ])
