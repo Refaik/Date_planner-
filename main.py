@@ -22,7 +22,7 @@ async def on_startup():
     await init_db()
 
 
-# Отдача HTML страниц через FileResponse без ошибок Jinja2
+# Отдача HTML страниц напрямую через FileResponse
 @app.get("/", response_class=FileResponse)
 async def get_index():
     return FileResponse("templates/index.html")
@@ -102,7 +102,9 @@ async def get_active_date(db: AsyncSession = Depends(get_db)):
         "has_active": True,
         "active_id": active.id,
         "active_date_id": active.id,
-        "title": idea.title if idea else "Свидание"
+        "title": idea.title if idea else "Свидание",
+        "dress_code": idea.dress_code if idea else "Свободный / комфортный стиль ✨",
+        "selected_at": active.selected_at.isoformat() if active.selected_at else ""
     }
 
 
@@ -148,7 +150,7 @@ async def complete_date(
     return {"status": "success"}
 
 
-# Получение истории для альбома воспоминаний
+# Получение истории для альбома воспоминаний (только завершенные реальные свидания)
 @app.get("/api/history")
 async def get_history(db: AsyncSession = Depends(get_db)):
     query = select(ActiveDate).where(ActiveDate.status == "completed").order_by(desc(ActiveDate.id))

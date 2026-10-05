@@ -2,223 +2,194 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Приглашение 💖 — Date Planner</title>
-  <meta name="description" content="Романтическое интерактивное веб-приложение для выбора и планирования идеальных свиданий.">
-
-  <!-- Telegram WebApp SDK & Confetti -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Куда сходим? 💖</title>
+  <!-- Telegram WebApp SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
-  <script>
-    const originalAlert = window.alert;
-    window.alert = function(msg) {
-      let toast = document.getElementById('app-toast');
-      if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'app-toast';
-        toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#e91e63;color:white;padding:12px 24px;border-radius:20px;font-size:14px;font-weight:700;z-index:99999;box-shadow:0 8px 20px rgba(0,0,0,0.25);transition:opacity 0.3s;text-align:center;max-width:90vw;pointer-events:none;';
-        document.body.appendChild(toast);
-      }
-      toast.textContent = msg;
-      toast.style.opacity = '1';
-      clearTimeout(window.__toastTimeout);
-      window.__toastTimeout = setTimeout(() => { if (toast) toast.style.opacity = '0'; }, 3200);
-      try {
-        if (originalAlert) originalAlert.call(window, msg);
-      } catch (e) {}
-    };
-  </script>
-
   <style>
     :root {
-      --bg-color: #fce4ec;
-      --card-bg: #ffffff;
-      --accent-pink: #f48fb1;
-      --accent-deep: #e91e63;
-      --text-main: #4a4a4a;
-      --btn-bg: #f8bbd0;
+      --primary-pink: #ff1493;
+      --soft-pink: #fce4ec;
+      --deep-pink: #ad1457;
+      --text-dark: #4a4a4a;
+      --bg-gradient: linear-gradient(135deg, #fce4ec 0%, #ffebee 50%, #f8bbd0 100%);
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      user-select: none;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
     }
 
-    html, body {
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      background-color: var(--bg-color);
-      color: var(--text-main);
+    body {
+      background: var(--bg-gradient);
+      min-height: 100vh;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-x: hidden;
+      color: var(--text-dark);
       position: relative;
     }
 
-    .emoji-background {
+    /* Плавающие романтичные смайлики на фоне */
+    .emoji-bg {
       position: fixed;
-      top: 0; left: 0; width: 100vw; height: 100vh;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
       pointer-events: none;
+      z-index: 0;
       overflow: hidden;
-      z-index: 1;
     }
 
     .floating-emoji {
       position: absolute;
-      bottom: -60px;
-      font-size: 1.5rem;
-      opacity: 0.35;
-      filter: saturate(75%);
-      animation: floatUp linear infinite;
-      will-change: transform, opacity;
+      bottom: -40px;
+      font-size: 20px;
+      opacity: 0.25;
+      animation: floatUp 10s linear infinite;
     }
 
     @keyframes floatUp {
-      0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-      15% { opacity: 0.45; }
-      85% { opacity: 0.45; }
+      0% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+      50% { opacity: 0.6; }
       100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
     }
 
-    .screen {
-      position: absolute;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-      z-index: 10;
-      box-sizing: border-box;
-      text-align: center;
-      overflow-x: hidden;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .screen.hidden { display: none !important; }
-    .screen.active { display: flex !important; }
-
-    #categories-screen, #report-screen, #history-screen {
-      justify-content: flex-start;
-      padding-top: 60px;
-      padding-bottom: 32px;
-    }
-    #categories-screen > :first-child, #report-screen > :first-child,
-    #history-screen > :first-child { margin-top: auto; }
-    #categories-screen > :last-child, #report-screen > :last-child,
-    #history-screen > :last-child { margin-bottom: auto; }
-
-    .top-nav-group {
+    /* Кнопки в правом верхнем углу */
+    .top-controls {
       position: fixed;
       top: 14px;
       right: 14px;
       display: flex;
-      align-items: center;
       gap: 8px;
-      z-index: 999;
+      z-index: 100;
     }
 
-    .circle-nav-btn {
-      width: 36px; height: 36px;
+    .top-btn {
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.45);
-      -webkit-backdrop-filter: blur(6px);
-      backdrop-filter: blur(6px);
-      border: 1px solid rgba(255, 255, 255, 0.7);
-      color: rgba(173, 20, 87, 0.75);
-      font-size: 16px;
-      font-weight: 600;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #f8bbd0;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      font-size: 18px;
       cursor: pointer;
-      transition: background 0.2s ease, transform 0.2s ease;
-    }
-    .circle-nav-btn:active {
-      background: rgba(255, 255, 255, 0.75);
-      transform: scale(0.94);
-    }
-
-    .text-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-    }
-    .text-bubble {
-      color: #ad1457;
-      font-size: 28px;
-      font-weight: 800;
-      padding: 16px 24px;
-      background: rgba(255, 255, 255, 0.85);
-      border-radius: 20px;
-      box-shadow: 0 4px 15px rgba(244, 143, 177, 0.25);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
       backdrop-filter: blur(4px);
+      transition: transform 0.15s ease;
     }
-    .text-bubble.highlight { color: var(--accent-deep); font-size: 32px; }
-    .text-bubble.multiline { font-size: 22px; line-height: 1.4; }
 
-    .final-buttons {
-      position: absolute;
-      bottom: 40px;
-      width: 85%;
-      max-width: 320px;
+    .top-btn:active {
+      transform: scale(0.92);
+    }
+
+    /* Экраны */
+    .screen {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 360px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      align-items: center;
+      text-align: center;
+      transition: all 0.3s ease;
     }
 
+    .hidden {
+      display: none !important;
+    }
+
+    .active {
+      display: flex !important;
+      animation: fadeIn 0.35s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .main-title {
+      font-size: 23px;
+      font-weight: 800;
+      color: #ad1457;
+      margin-bottom: 24px;
+      line-height: 1.3;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: #666;
+      margin-bottom: 24px;
+      line-height: 1.4;
+    }
+
+    /* Кнопки */
     .main-button {
-      background: var(--btn-bg);
-      color: #880e4f;
-      border: 2px solid #ffffff;
-      border-radius: 18px;
-      padding: 16px;
+      background: linear-gradient(135deg, #ff4081, #e91e63);
+      color: white;
+      border: none;
+      padding: 14px 28px;
       font-size: 16px;
       font-weight: 700;
+      border-radius: 20px;
+      box-shadow: 0 8px 20px rgba(233, 30, 99, 0.35);
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(244, 143, 177, 0.3);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
       width: 100%;
-      transition: transform 0.15s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
+      max-width: 280px;
+      margin-bottom: 12px;
     }
-    .main-button:active { transform: scale(0.96); }
+
+    .main-button:active {
+      transform: scale(0.97);
+      box-shadow: 0 4px 10px rgba(233, 30, 99, 0.2);
+    }
 
     .reject-button {
       background: transparent;
-      color: #9e9e9e;
+      color: #888;
       border: none;
-      font-size: 13px;
+      padding: 10px;
+      font-size: 13.5px;
+      font-weight: 600;
       cursor: pointer;
+      text-decoration: underline;
+      transition: color 0.2s;
     }
 
+    /* Карточки настроек фильтров */
     .card-panel {
-      background: var(--card-bg);
+      background: rgba(255, 255, 255, 0.95);
       border-radius: 24px;
-      padding: 20px;
+      padding: 18px 16px;
       width: 100%;
-      max-width: 340px;
-      box-shadow: 0 8px 25px rgba(0,0,0,0.05);
-      border: 1px solid #f8bbd0;
-      margin-bottom: 12px;
-      text-align: left;
+      box-shadow: 0 12px 30px rgba(233, 30, 99, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      margin-bottom: 16px;
     }
 
     .filter-title {
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 700;
       color: #ad1457;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      text-align: left;
     }
 
     .chips-group {
@@ -229,296 +200,285 @@
 
     .chip-btn {
       background: #fce4ec;
-      border: 1px solid #f8bbd0;
-      color: var(--text-main);
-      border-radius: 12px;
-      padding: 8px 12px;
-      font-size: 12px;
+      color: #ad1457;
+      border: 1.5px solid #f8bbd0;
+      padding: 8px 14px;
+      border-radius: 14px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
+      transition: all 0.2s ease;
     }
+
     .chip-btn.selected {
-      background: var(--accent-pink);
-      color: white;
+      background: linear-gradient(135deg, #ff4081, #e91e63);
+      color: #ffffff;
+      border-color: #e91e63;
+      box-shadow: 0 4px 12px rgba(233, 30, 99, 0.25);
     }
 
-    .prep-box {
-      background: #fff0f3;
-      border: 1px dashed var(--accent-pink);
-      border-radius: 14px;
-      padding: 14px;
-      margin-top: 10px;
-      text-align: left;
-      font-size: 13px;
-      color: #880e4f;
+    /* Модальное окно */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
     }
 
-    /* Интерактивный звёздный рейтинг: белая -> розовая */
+    /* Интерактивный рейтинг со звездами */
     .star-rating-container {
       display: flex;
       justify-content: center;
-      align-items: center;
-      gap: 12px;
-      margin: 12px 0 6px;
-    }
-    .rating-star {
-      font-size: 34px;
-      cursor: pointer;
-      color: #ffffff;
-      text-shadow: 0 2px 8px rgba(233, 30, 99, 0.28), 0 0 2px #f48fb1;
-      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease, text-shadow 0.2s ease;
-      user-select: none;
-      display: inline-block;
-    }
-    .rating-star.active {
-      color: #e91e63;
-      text-shadow: 0 4px 14px rgba(233, 30, 99, 0.45);
-      transform: scale(1.18);
-    }
-    .rating-star:hover {
-      transform: scale(1.26);
-    }
-    .rating-label {
-      font-size: 13px;
-      color: #ad1457;
-      font-weight: 600;
-      text-align: center;
-      min-height: 20px;
-      margin-bottom: 8px;
+      gap: 8px;
+      margin: 10px 0;
     }
 
+    .rating-star {
+      font-size: 32px;
+      cursor: pointer;
+      color: #ffffff;
+      -webkit-text-stroke: 1.5px #f48fb1;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      transition: transform 0.15s ease, color 0.15s ease;
+    }
+
+    .rating-star.active {
+      color: #ff4081;
+      -webkit-text-stroke: 1.5px #e91e63;
+      text-shadow: 0 0 10px rgba(255, 64, 129, 0.4);
+    }
+
+    .rating-label {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #ad1457;
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    /* Загрузка фото отчета */
     .photo-preview-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
       margin-top: 10px;
     }
+
     .photo-preview-item {
-      position: relative;
-      width: 100%;
       aspect-ratio: 1;
       border-radius: 12px;
       overflow: hidden;
-      border: 1.5px solid #f8bbd0;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+      border: 1px solid #f8bbd0;
+      background: #fce4ec;
+      position: relative;
     }
+
     .photo-preview-item img {
-      width: 100%; height: 100%;
+      width: 100%;
+      height: 100%;
       object-fit: cover;
     }
-    .photo-count-badge {
-      font-size: 12px;
-      margin-top: 6px;
-      font-weight: 600;
-      text-align: center;
-    }
-    .photo-count-badge.ok { color: #2e7d32; }
-    .photo-count-badge.need-more { color: #c62828; }
 
-    /* Полароидная галерея воспоминаний */
+    .photo-count-badge {
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 8px;
+      display: inline-block;
+      margin-top: 6px;
+    }
+
+    .photo-count-badge.need-more {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .photo-count-badge.ok {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    /* Галерея Polaroid */
     .scrapbook-container {
       width: 100%;
-      max-width: 330px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 20px;
+      margin-top: 10px;
     }
+
     .polaroid-card {
       background: #ffffff;
-      border-radius: 20px;
-      padding: 16px 16px 20px;
-      box-shadow: 0 10px 30px rgba(186, 104, 200, 0.14);
-      border: 1px solid rgba(248, 187, 208, 0.8);
+      padding: 14px 14px 18px;
+      border-radius: 8px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+      border: 1px solid #eee;
       position: relative;
-      text-align: left;
     }
+
     .polaroid-tape {
       position: absolute;
       top: -10px;
       left: 50%;
       transform: translateX(-50%);
       width: 80px;
-      height: 22px;
-      background: rgba(248, 187, 208, 0.6);
-      border-radius: 4px;
-      backdrop-filter: blur(2px);
+      height: 20px;
+      background: rgba(255, 243, 205, 0.85);
+      border: 1px dashed rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
+
     .polaroid-header {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 6px;
-    }
-    .polaroid-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: #ad1457;
-    }
-    .polaroid-date {
-      font-size: 11px;
-      color: #9e7d8c;
-      font-weight: 600;
-    }
-    .polaroid-stars {
-      color: #e91e63;
-      font-size: 14px;
-      letter-spacing: 2px;
+      align-items: center;
       margin-bottom: 8px;
     }
-    .polaroid-review {
-      font-size: 13px;
-      color: #555;
-      line-height: 1.45;
-      font-style: italic;
-      background: #fff8fa;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border-left: 3px solid #f48fb1;
-      margin-bottom: 12px;
+
+    .polaroid-title {
+      font-weight: 800;
+      color: #ad1457;
+      font-size: 15px;
     }
+
+    .polaroid-date {
+      font-size: 11px;
+      color: #888;
+    }
+
+    .polaroid-stars {
+      color: #ff4081;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
     .polaroid-gallery {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 6px;
+      margin-top: 8px;
     }
+
     .polaroid-photo-frame {
-      width: 100%;
       aspect-ratio: 1;
-      border-radius: 10px;
+      border-radius: 6px;
       overflow: hidden;
-      border: 2px solid #ffffff;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      background: #f7f7f7;
     }
+
     .polaroid-photo-frame img {
-      width: 100%; height: 100%;
+      width: 100%;
+      height: 100%;
       object-fit: cover;
     }
 
-    .modal-overlay {
+    .polaroid-review {
+      font-size: 12.5px;
+      font-style: italic;
+      color: #555;
+      margin-top: 10px;
+      line-height: 1.4;
+      background: #fff8fa;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border-left: 3px solid #ff4081;
+    }
+
+    .custom-alert {
       position: fixed;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0,0,0,0.4);
-      backdrop-filter: blur(4px);
-      z-index: 1000;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-    .modal-overlay.hidden { display: none !important; }
-
-    #info-modal { background: rgba(60, 40, 50, 0.18); }
-    #info-modal .info-panel {
-      background: rgba(255, 255, 255, 0.82);
-      -webkit-backdrop-filter: blur(10px);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.9);
-      border-radius: 22px;
-      padding: 18px 20px;
-      width: 100%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.98);
+      padding: 22px 20px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      z-index: 9999;
+      text-align: center;
+      border: 1px solid #f8bbd0;
+      width: 85%;
       max-width: 320px;
-      text-align: left;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
-      animation: infoFade 0.25s ease;
     }
-    #info-modal .info-title {
-      color: #8d6e7a;
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 10px;
-    }
-    #info-modal .info-text {
-      font-size: 13px;
-      color: #8a7a80;
-      line-height: 1.6;
-      margin-bottom: 14px;
-    }
-    #info-modal .info-text b { color: #a1707f; font-weight: 600; }
-    #info-modal .info-close {
-      width: 100%;
-      padding: 9px;
-      background: rgba(244, 143, 177, 0.15);
-      border: none;
-      border-radius: 14px;
-      color: #a1707f;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    #info-modal .info-close:active { background: rgba(244, 143, 177, 0.28); }
-
-    @keyframes infoFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-    #step-1.active .text-bubble { animation: bounceUp 0.6s ease forwards; }
-    #step-2.active .text-bubble { animation: zoomIn 0.6s ease forwards; }
-    #step-3.active .text-bubble { animation: popScale 0.6s ease forwards; }
-    #step-4.active .text-bubble { animation: slideIn 0.6s ease forwards; }
-    @keyframes bounceUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes zoomIn { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
-    @keyframes popScale { from { opacity: 0; transform: scale(0.3); } to { opacity: 1; transform: scale(1); } }
-    @keyframes slideIn { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
   </style>
 </head>
 <body>
+  <!-- Плавающие смайлы -->
+  <div class="emoji-bg" id="emojiBg"></div>
 
-  <!-- Верхние кнопки: Галерея воспоминаний (🖼️) и Справка (?) рядом -->
-  <div class="top-nav-group">
-    <div class="circle-nav-btn" onclick="openHistory()" title="Галерея воспоминаний">🖼️</div>
-    <div class="circle-nav-btn" onclick="toggleInfoModal()" title="Как это работает">?</div>
+  <!-- Кнопки в правом верхнем углу -->
+  <div class="top-controls">
+    <button class="top-btn" onclick="openHistory()" title="Галерея воспоминаний">🖼️</button>
+    <button class="top-btn" onclick="toggleInfoModal()" title="Инструкция">?</button>
   </div>
 
-  <!-- ФОН -->
-  <div class="emoji-background" id="emojiBg"></div>
-
-  <!-- ШАГ 1: Я -->
-  <div id="step-1" class="screen active" onclick="nextStep(1, 2)">
-    <div class="text-container"><div class="text-bubble">Я</div></div>
+  <!-- ШАГ 1 -->
+  <div id="step-1" class="screen active">
+    <div style="font-size: 50px; margin-bottom: 12px;">💖</div>
+    <div class="main-title">Я приглашаю ТЕБЯ на самое лучшее свидание!</div>
+    <button class="main-button" onclick="nextStep(1, 2)">ПРИНЯТЬ ПРИГЛАШЕНИЕ 💕</button>
+    <button class="reject-button" onclick="showRejection(event)">ОТКАЗАТЬСЯ</button>
   </div>
 
-  <!-- ШАГ 2: приглашаю -->
-  <div id="step-2" class="screen hidden" onclick="nextStep(2, 3)">
-    <div class="text-container"><div class="text-bubble">приглашаю</div></div>
+  <!-- ШАГ 2 -->
+  <div id="step-2" class="screen hidden">
+    <div style="font-size: 50px; margin-bottom: 12px;">✨</div>
+    <div class="main-title">Будет очень интересно, я обещаю!</div>
+    <button class="main-button" onclick="nextStep(2, 3)">ТОЧНО ДА! 💖</button>
+    <button class="reject-button" onclick="showRejection(event)">ОТКАЗАТЬСЯ</button>
   </div>
 
-  <!-- ШАГ 3: ТЕБЯ -->
-  <div id="step-3" class="screen hidden" onclick="nextStep(3, 4)">
-    <div class="text-container"><div class="text-bubble highlight">❤️ ТЕБЯ ❤️</div></div>
+  <!-- ШАГ 3 -->
+  <div id="step-3" class="screen hidden">
+    <div style="font-size: 50px; margin-bottom: 12px;">🥰</div>
+    <div class="main-title">Тогда давай решим, куда и как мы пойдем?</div>
+    <button class="main-button" onclick="nextStep(3, 4)">ДАВАЙ! ✨</button>
+    <button class="reject-button" onclick="showRejection(event)">ОТКАЗАТЬСЯ</button>
   </div>
 
-  <!-- ШАГ 4: На самое лучшее свидание -->
+  <!-- ШАГ 4: СТАРТ ВЫБОРА -->
   <div id="step-4" class="screen hidden">
-    <div class="text-container"><div class="text-bubble multiline">на самое лучшее<br>свидание! 🎉</div></div>
-    <div class="final-buttons">
-      <button class="main-button" onclick="goToCategories(event)">ВЫБРАТЬ СВИДАНИЕ 💖</button>
-      <button class="reject-button" onclick="showRejection(event)">Нет, я тебя не люблю</button>
-    </div>
+    <div style="font-size: 50px; margin-bottom: 12px;">💌</div>
+    <div class="main-title">Выбери настроение сегодняшнего свидания</div>
+    <p class="subtitle">Ты настраиваешь предпочтения, а дальше доверься рандому и сюрпризу!</p>
+    <button class="main-button" onclick="goToCategories(event)">НАЧАТЬ ВЫБОР 🚀</button>
   </div>
 
   <!-- ЭКРАН ОТКАЗА -->
-  <div id="reject-screen" class="screen hidden" onclick="resetFlow()">
-    <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWdybmkweDk4aWt4YjY1dTB0dTJua2hmOXBmc2c0dDkxNG1weWNlMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/7AzEXdIb1wyCTWJntb/giphy.gif" style="width: 120px; border-radius: 16px; margin-bottom: 12px;">
-    <h2 style="color: #c62828;">Пошла нахуй! 💔</h2>
-    <p style="font-size: 14px; color: #666; margin-top: 4px;">Такой вариант не принимается!</p>
+  <div id="reject-screen" class="screen hidden">
+    <div style="font-size: 55px; margin-bottom: 12px;">🥺</div>
+    <div class="main-title" style="color: #c2185b;">Эй, такой вариант даже не рассматривается!</div>
+    <p class="subtitle">Я очень хочу провести это время с тобой, возвращайся назад! 💕</p>
+    <button class="main-button" onclick="resetFlow()">Ладно, уговорил! 💖</button>
   </div>
 
-  <!-- ЭКРАН 1: ФИЛЬТРЫ (ТОЛЬКО КНОПКА РАНДОМ) -->
+  <!-- ЭКРАН ВЫБОРА КАТЕГОРИЙ -->
   <div id="categories-screen" class="screen hidden">
-    <h3 style="color: #ad1457; margin-bottom: 15px;">Чего тебе хочется? ✨</h3>
+    <h3 style="color: #ad1457; margin-bottom: 6px;">Настройка свидания 🎯</h3>
+    <p style="font-size: 12px; color: #777; margin-bottom: 14px;">Выбери свои пожелания:</p>
 
     <div class="card-panel">
-      <div class="filter-title">🏡 Где проведём время?</div>
+      <div class="filter-title">📍 Где проводим свидание?</div>
       <div class="chips-group" id="filter-location">
-        <button class="chip-btn selected" data-value="all" onclick="selectChip('filter-location', this)">🎲 Любое</button>
+        <button class="chip-btn selected" data-value="all" onclick="selectChip('filter-location', this)">✨ Не важно</button>
         <button class="chip-btn" data-value="home" onclick="selectChip('filter-location', this)">🏠 Дома</button>
-        <button class="chip-btn" data-value="outside" onclick="selectChip('filter-location', this)">🌆 На улице</button>
+        <button class="chip-btn" data-value="outside" onclick="selectChip('filter-location', this)">🌆 Вне дома</button>
       </div>
     </div>
 
     <div class="card-panel">
       <div class="filter-title">⏰ Время суток?</div>
       <div class="chips-group" id="filter-time">
-        <button class="chip-btn selected" data-value="any" onclick="selectChip('filter-time', this)">✨ Неважно</button>
+        <button class="chip-btn selected" data-value="any" onclick="selectChip('filter-time', this)">✨ Любое</button>
         <button class="chip-btn" data-value="day" onclick="selectChip('filter-time', this)">☀️ День</button>
-        <button class="chip-btn" data-value="night" onclick="selectChip('filter-time', this)">🌙 Вечер</button>
+        <button class="chip-btn" data-value="night" onclick="selectChip('filter-time', this)">🌙 Вечер / Ночь</button>
       </div>
     </div>
 
@@ -540,6 +500,9 @@
     <h3 style="color: #ad1457; margin-bottom: 6px;">🖼️ Галерея воспоминаний</h3>
     <p style="font-size: 12px; color: #888; margin-bottom: 18px;">Наши самые тёплые моменты на память</p>
 
+    <!-- БЛОК ДЛЯ СДАЧИ ОТЧЕТА К АКТИВНОМУ СВИДАНИЮ -->
+    <div id="historyActivePrompt" style="width: 100%; max-width: 340px; margin-bottom: 14px; display: none;"></div>
+
     <div id="historyList" class="scrapbook-container"></div>
 
     <button class="main-button" style="max-width: 320px; margin-top: 18px; padding: 12px; font-size: 14px;" onclick="showScreen('categories-screen')">
@@ -547,14 +510,14 @@
     </button>
   </div>
 
-  <!-- МОДАЛЬНОЕ ОКНО: БЕЗ ФОТО СВИДАНИЯ, ТОЛЬКО КРАТКИЙ ДРЕСС-КОД (СЮРПРИЗ) -->
+  <!-- МОДАЛЬНОЕ ОКНО СЮРПРИЗА (ТОЛЬКО КРАТКИЙ ДРЕСС-КОД) -->
   <div id="preview-modal" class="modal-overlay hidden">
     <div class="card-panel" style="margin-bottom: 0; text-align: center;">
       <div style="font-size: 38px; margin-bottom: 6px;">💌</div>
       <h3 style="color: #ad1457; font-size: 19px; margin-bottom: 6px;">Свидание выбрано! ✨</h3>
       <p style="font-size: 12.5px; color: #777; margin-bottom: 14px;">Всё остальное будет приятным сюрпризом 💕</p>
 
-      <div class="prep-box" style="text-align: left;">
+      <div class="prep-box" style="text-align: left; background: #fff0f3; padding: 12px; border-radius: 12px;">
         <div style="font-weight: 800; margin-bottom: 4px; font-size: 13px; color: #880e4f;">👗 Дресс-код:</div>
         <div id="modalPrepText" style="font-size: 13.5px; font-weight: 600; color: #ad1457; line-height: 1.4;">Захвати хорошее настроение!</div>
       </div>
@@ -569,10 +532,22 @@
   <div id="report-screen" class="screen hidden">
     <div class="card-panel">
       <h3 style="color: #ad1457; text-align: center; margin-bottom: 8px;">📸 Отчет о свидании</h3>
-      <p style="font-size: 12px; color: #666; margin-bottom: 14px; text-align: center;">Загрузите минимум 3 фотографии после того, как проведёте свидание!</p>
+      <p style="font-size: 12px; color: #666; margin-bottom: 12px; text-align: center;">Загрузите минимум 3 фотографии после того, как проведёте свидание!</p>
+
+      <!-- БЕЙДЖ АКТИВНОГО СВИДАНИЯ: ТОЛЬКО ДРЕСС-КОД, БЕЗ СПОЙЛЕРОВ И НАЗВАНИЙ -->
+      <div id="reportActiveDateBadge" class="prep-box" style="margin-bottom: 14px; display: none; background: #fff8fa; border: 1.5px solid #f48fb1; border-radius: 14px; padding: 14px; text-align: center;">
+        <div style="font-weight: 800; color: #ad1457; font-size: 15px; margin-bottom: 5px;">
+          💌 Твоё секретное свидание ждёт тебя! ✨
+        </div>
+        <div style="font-size: 12px; color: #777; margin-bottom: 8px;">
+          Куда вы идёте — приятный сюрприз! Одевайся по дресс-коду:
+        </div>
+        <div id="reportActiveDateDress" style="font-size: 13.5px; font-weight: 700; color: #e91e63; background: #fff; padding: 8px 12px; border-radius: 10px; border: 1px dashed #f48fb1;"></div>
+      </div>
 
       <input type="hidden" id="reportActiveId">
 
+      <!-- ИНТЕРАКТИВНЫЙ РЕЙТИНГ -->
       <div style="margin-bottom: 12px;">
         <label style="font-size: 12px; font-weight: 700; color: #555;">Оценка свидания:</label>
         <div class="star-rating-container" id="starRating">
@@ -591,6 +566,7 @@
         <textarea id="reportReview" rows="3" style="width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #f8bbd0; outline: none; margin-top: 4px;" placeholder="Твои впечатления..."></textarea>
       </div>
 
+      <!-- ПРЕДПРОСМОТР ФОТОГРАФИЙ -->
       <div style="margin-bottom: 15px;">
         <label style="font-size: 12px; font-weight: 600;">Загрузи фото (мин. 3 шт.):</label>
         <input type="file" id="reportPhotos" multiple accept="image/*" style="width: 100%; font-size: 12px; margin-top: 4px;" onchange="handlePhotoSelect(event)">
@@ -604,15 +580,15 @@
 
   <!-- МОДАЛЬНОЕ ОКНО СПРАВКИ (?) -->
   <div id="info-modal" class="modal-overlay hidden" onclick="toggleInfoModal()">
-    <div class="info-panel" onclick="event.stopPropagation()">
-      <div class="info-title">Как это работает?</div>
-      <div class="info-text">
-        1. Проходишь меню выбора и настраиваешь желаемые фильтры.<br>
-        2. Нажимаешь кнопку <b>🎲 РАНДОМ</b> — свидание подберётся автоматически, а его детали останутся приятным сюрпризом!<br>
-        3. Смотришь подходящий дресс-код и жмёшь <b>ВАУ!</b>.<br>
+    <div class="card-panel" style="max-width: 320px; text-align: left;" onclick="event.stopPropagation()">
+      <div style="font-weight: 800; color: #ad1457; font-size: 16px; margin-bottom: 8px;">Как это работает? ✨</div>
+      <div style="font-size: 13px; color: #555; line-height: 1.5; margin-bottom: 14px;">
+        1. Настраиваешь фильтры настроения.<br>
+        2. Жмёшь кнопку <b>🎲 РАНДОМ</b> — свидание подберётся автоматически, а детали останутся сюрпризом!<br>
+        3. Смотришь дресс-код и подтверждаешь.<br>
         4. После свидания загружаешь 3 фото в отчёт — они навсегда останутся в вашей <b>Галерее воспоминаний 🖼️</b>!
       </div>
-      <button class="info-close" onclick="toggleInfoModal()">Понятно</button>
+      <button class="main-button" style="padding: 10px; font-size: 14px;" onclick="toggleInfoModal()">Понятно 💕</button>
     </div>
   </div>
 
@@ -622,10 +598,21 @@
     let poolIdeas = [];
     let pendingIdeaId = null;
 
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
       if (tg) { tg.ready(); tg.expand(); }
       createFloatingEmojis();
+      await checkActiveDateOnStartup();
     });
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
     const fireConfetti = (() => {
       try {
@@ -697,44 +684,38 @@
       const url = `/api/ideas?location=${encodeURIComponent(loc)}&time=${encodeURIComponent(time)}&activity=${encodeURIComponent(act)}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Сервер ответил ${res.status}`);
-      const data = await res.json();
-      if (!Array.isArray(data)) throw new Error('Неверный формат ответа сервера');
-      return data;
+      return await res.json();
     }
 
     function showError(msg) {
-      if (tg && tg.showAlert) tg.showAlert(msg); else alert(msg);
+      const old = document.querySelector('.custom-alert');
+      if (old) old.remove();
+      const alertBox = document.createElement('div');
+      alertBox.className = 'custom-alert';
+      alertBox.innerHTML = `
+        <div style="font-size: 28px; margin-bottom: 8px;">🌸</div>
+        <div style="font-weight: 700; color: #ad1457; margin-bottom: 12px; font-size: 14px; line-height: 1.4;">${escapeHtml(msg)}</div>
+        <button class="main-button" style="padding: 10px 20px; font-size: 14px; max-width: 150px; margin: 0 auto;" onclick="this.parentElement.remove()">Понятно</button>
+      `;
+      document.body.appendChild(alertBox);
     }
 
-    function formatShortDressCode(text) {
-      if (!text) return 'Свободный / комфортный стиль ✨';
-      let clean = text.trim();
-      const parts = clean.split(/[.;\n]/);
-      if (parts.length > 0 && parts[0].trim().length > 3) {
-        clean = parts[0].trim();
-      }
-      if (clean.length > 45) {
-        clean = clean.substring(0, 42) + '…';
-      }
-      return clean;
+    function formatShortDressCode(raw) {
+      if (!raw) return 'Свободный / комфортный стиль ✨';
+      let dress = raw.replace(/\((?:забронировать|купить|позвонить|входной билеты|билеты|подготовить).*?\)/gi, '').trim();
+      return dress || 'Свободный / комфортный стиль ✨';
     }
 
     async function chooseRandomDate() {
       try {
         poolIdeas = await loadIdeas(selectedFilters);
-        if (poolIdeas.length === 0) {
-          poolIdeas = await loadIdeas({ location: selectedFilters.location, time: 'any', activity: 'any' });
-        }
-        if (poolIdeas.length === 0) {
-          poolIdeas = await loadIdeas({ location: 'all', time: 'any', activity: 'any' });
-        }
-      } catch (e) {
-        console.error(e);
-        showError('Не получилось загрузить варианты свиданий 😔\n' + e.message);
+      } catch (err) {
+        showError('Не удалось загрузить свидания. Попробуйте еще раз!');
         return;
       }
-      if (poolIdeas.length === 0) {
-        showError('Пока нет доступных вариантов свидания.');
+
+      if (!poolIdeas || poolIdeas.length === 0) {
+        showError('Под эти фильтры ничего не нашлось. Попробуй выбрать другие варианты! 💕');
         return;
       }
 
@@ -742,6 +723,35 @@
       promptPreviewModal(randomIdea);
     }
 
+    /* ФУНКЦИЯ ОТКРЫТИЯ ЭКРАНА СДАЧИ ОТЧЕТА ПО АКТИВНОМУ СВИДАНИЮ */
+    function openReportForActiveDate(activeId, dressCode) {
+      document.getElementById('reportActiveId').value = activeId;
+      const badge = document.getElementById('reportActiveDateBadge');
+      if (badge) {
+        badge.style.display = 'block';
+        const dressElem = document.getElementById('reportActiveDateDress');
+        if (dressElem) {
+          dressElem.textContent = dressCode || 'Свободный / комфортный стиль ✨';
+        }
+      }
+      showScreen('report-screen');
+    }
+
+    /* АВТОМАТИЧЕСКАЯ ПРОВЕРКА АКТИВНОГО СВИДАНИЯ ПРИ ЗАПУСКЕ */
+    async function checkActiveDateOnStartup() {
+      try {
+        const res = await fetch('/api/active-date');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.has_active) {
+          openReportForActiveDate(data.active_date_id || data.active_id, data.dress_code);
+        }
+      } catch (e) {
+        console.warn('Check active date failed:', e);
+      }
+    }
+
+    /* ПОКАЗ ТОЛЬКО КРАТКОГО ДРЕСС-КОДА (БЕЗ ФОТО И БЕЗ СПОЙЛЕРОВ) */
     function promptPreviewModal(idea) {
       pendingIdeaId = idea.id;
       const shortDress = formatShortDressCode(idea.dress_code || idea.preparation);
@@ -749,23 +759,27 @@
       document.getElementById('preview-modal').classList.remove('hidden');
     }
 
+    /* НАЖАТИЕ НА КНОПКУ ВАУ */
     async function confirmSelectedDate() {
       if (!pendingIdeaId) return;
       document.getElementById('preview-modal').classList.add('hidden');
+
+      let chosenIdea = poolIdeas.find(i => i.id === pendingIdeaId);
+      const ideaDress = chosenIdea ? chosenIdea.dress_code : '';
 
       try {
         const res = await fetch(`/api/select-date/${pendingIdeaId}`, { method: 'POST' });
         const data = await res.json();
         const newId = data.active_date_id || data.active_id;
         if (newId) {
-          document.getElementById('reportActiveId').value = newId;
+          openReportForActiveDate(newId, ideaDress);
         }
       } catch(e) { console.error(e); }
 
       fireConfetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
-      showScreen('report-screen');
     }
 
+    // ИНТЕРАКТИВНЫЙ РЕЙТИНГ
     const ratingLabels = {
       1: "1/5 — Могло быть лучше 🥺",
       2: "2/5 — Были нюансы 🤔",
@@ -788,6 +802,7 @@
       document.getElementById('ratingLabel').textContent = ratingLabels[val] || '';
     }
 
+    // ПРЕДПРОСМОТР ФОТОГРАФИЙ
     function handlePhotoSelect(e) {
       const files = e.target.files;
       const grid = document.getElementById('photoPreviewGrid');
@@ -814,11 +829,41 @@
       });
     }
 
+    // ГАЛЕРЕЯ ВОСПОМИНАНИЙ
     async function openHistory() {
+      const promptBox = document.getElementById('historyActivePrompt');
       const list = document.getElementById('historyList');
       list.innerHTML = '<div style="color: #ad1457; text-align: center; font-weight: 600;">Открываем галерею... 🌸</div>';
       showScreen('history-screen');
 
+      // 1. Проверяем наличие активного свидания для кнопки сдачи отчета
+      try {
+        const activeRes = await fetch('/api/active-date');
+        const activeData = await activeRes.json();
+        if (activeData && activeData.has_active) {
+          promptBox.style.display = 'block';
+          promptBox.innerHTML = `
+            <div class="card-panel" style="background: linear-gradient(135deg, #fff0f3, #ffffff); border: 2px solid #f48fb1; margin-bottom: 0; text-align: center;">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 6px;">
+                <span style="font-size: 18px;">💌</span>
+                <span style="font-size: 11px; font-weight: 800; background: #e91e63; color: white; padding: 2px 8px; border-radius: 10px;">СЕКРЕТНОЕ СВИДАНИЕ</span>
+              </div>
+              <div style="font-weight: 800; font-size: 15px; color: #ad1457; margin-bottom: 4px;">Свидание-сюрприз выбрано! ✨</div>
+              <p style="font-size: 12px; color: #666; margin-bottom: 12px;">Сходили на свидание? Загрузите 3 фото и свои впечатления в наш альбом воспоминаний 💕</p>
+              <button class="main-button" style="padding: 12px; font-size: 14px; background: #e91e63; color: white;" onclick="openReportForActiveDate(${activeData.active_date_id || activeData.active_id}, '${escapeHtml(activeData.dress_code || '')}')">
+                📸 Сдать отчет о свидании
+              </button>
+            </div>
+          `;
+        } else {
+          promptBox.style.display = 'none';
+          promptBox.innerHTML = '';
+        }
+      } catch (e) {
+        if (promptBox) promptBox.style.display = 'none';
+      }
+
+      // 2. Загружаем завершённые воспоминания
       try {
         const res = await fetch('/api/history');
         const memories = await res.json();
@@ -848,7 +893,7 @@
           if (m.photos && m.photos.length > 0) {
             photosHtml = '<div class="polaroid-gallery">' + m.photos.map(p => `
               <div class="polaroid-photo-frame">
-                <img src="${p}">
+                <img src="${p}" loading="lazy">
               </div>
             `).join('') + '</div>';
           }
@@ -856,11 +901,11 @@
           card.innerHTML = `
             <div class="polaroid-tape"></div>
             <div class="polaroid-header">
-              <span class="polaroid-title">${m.title}</span>
+              <span class="polaroid-title">${escapeHtml(m.title)}</span>
               <span class="polaroid-date">${dateStr}</span>
             </div>
             <div class="polaroid-stars">${starsHtml}</div>
-            ${m.review_text ? `<div class="polaroid-review">«${m.review_text}»</div>` : ''}
+            ${m.review_text ? `<div class="polaroid-review">«${escapeHtml(m.review_text)}»</div>` : ''}
             ${photosHtml}
           `;
           list.appendChild(card);
@@ -877,7 +922,7 @@
       const files = document.getElementById('reportPhotos').files;
 
       if (files.length < 3) {
-        alert("Пожалуйста, загрузите минимум 3 фотографии!");
+        showError("Пожалуйста, загрузите минимум 3 фотографии!");
         return;
       }
 
@@ -896,7 +941,7 @@
         showError('Отчет успешно отправлен и сохранён в галерею! ❤️');
         setTimeout(() => {
           openHistory();
-        }, 1000);
+        }, 1200);
       } catch (e) {
         console.error(e);
         showError('Не получилось отправить отчет 😔\n' + e.message);
