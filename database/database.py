@@ -1,221 +1,749 @@
-import os
-import uuid
-import aiofiles
-from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from datetime import datetime
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy import select, delete
+from config import settings
+from database.models import Base, DateIdea, ActiveDate
 
-from database.database import get_db, init_db
-from database.models import DateIdea, ActiveDate
-from bot.bot_instance import notify_admin_date_chosen, notify_admin_date_completed
+engine = create_async_engine(settings.DB_URL, echo=False)
+AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-app = FastAPI(title="Date Planner WebApp")
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
 
-os.makedirs("static/uploads", exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-
-@app.on_event("startup")
-async def on_startup():
-    await init_db()
-
-
-# Отдача HTML страниц напрямую через FileResponse
-@app.get("/", response_class=FileResponse)
-async def get_index():
-    return FileResponse("templates/index.html")
-
-
-@app.get("/admin", response_class=FileResponse)
-async def get_admin():
-    return FileResponse("templates/admin.html")
-
-
-# API получения свиданий с фильтрами
-@app.get("/api/ideas")
-async def get_ideas(
-        location: str = "all",
-        time: str = "any",
-        activity: str = "any",
-        category: str = None,
-        db: AsyncSession = Depends(get_db)
-):
-    loc = category if category else location
-    query = select(DateIdea).where(DateIdea.is_active == True)
-
-    if loc and loc != "all":
-        query = query.where(DateIdea.location_type == loc)
-    if time and time != "any":
-        query = query.where((DateIdea.time_type == "any") | (DateIdea.time_type == time) | (DateIdea.time_type == None))
-    if activity and activity != "any":
-        query = query.where(
-            (DateIdea.activity_type == "any") | (DateIdea.activity_type == activity) | (DateIdea.activity_type == None))
-
-    result = await db.execute(query)
-    ideas = result.scalars().all()
-    return ideas
-
-
-# Выбор свидания девушкой
-@app.post("/api/select-date/{idea_id}")
-async def select_date(idea_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DateIdea).where(DateIdea.id == idea_id))
-    idea = result.scalar_one_or_none()
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
-
-    active_date = ActiveDate(
-        date_idea_id=idea.id,
-        status="chosen"
-    )
-    db.add(active_date)
-    await db.commit()
-    await db.refresh(active_date)
-
-    await notify_admin_date_chosen(
-        idea_title=idea.title,
-        description=idea.description,
-        requirements=idea.requirements_text,
-        requires_booking=idea.requires_booking,
-        active_date_id=active_date.id,
-        place_link=idea.place_link,
-        dress_code=idea.dress_code
-    )
-
-    return {"status": "success", "active_date_id": active_date.id, "active_id": active_date.id}
-
-
-# Проверка активного выбранного свидания
-@app.get("/api/active-date")
-async def get_active_date(db: AsyncSession = Depends(get_db)):
-    query = select(ActiveDate).where(ActiveDate.status == "chosen").order_by(desc(ActiveDate.id))
-    result = await db.execute(query)
-    active = result.scalars().first()
-    if not active:
-        return {"has_active": False}
-
-    idea_res = await db.execute(select(DateIdea).where(DateIdea.id == active.date_idea_id))
-    idea = idea_res.scalar_one_or_none()
-    return {
-        "has_active": True,
-        "active_id": active.id,
-        "active_date_id": active.id,
-        "title": idea.title if idea else "Свидание",
-        "dress_code": idea.dress_code if idea else "Свободный / комфортный стиль ✨",
-        "selected_at": active.selected_at.isoformat() if active.selected_at else ""
+# Полный список 50 идей свиданий в Белгороде
+BELGOROD_50_IDEAS = [
+    {
+        "id": 1,
+        "title": "Ужин у воды в ресторане «Солома»",
+        "description": "Уютный деревянный ресторан на берегу с панорамными окнами, камином и потрясающей авторской кухней.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "food",
+        "requirements_text": "Забронировать столик у окна, заказать десерт",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500",
+        "dress_code": "Нарядное вечернее платье / стильный образ ✨",
+        "place_link": "https://yandex.ru/maps/org/soloma/1360183188 (Белгород, ул. Волчанская, 292б)",
+        "is_active": True
+    },
+    {
+        "id": 2,
+        "title": "Лесной ресторан «Лес & Лис»",
+        "description": "Свидание посреди соснового бора в урочище Сосновка с живым огнем и атмосферой сказки.",
+        "location_type": "outside",
+        "time_type": "any",
+        "activity_type": "food",
+        "requirements_text": "Забронировать стол у камина",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1544025162-d76694265947?w=500",
+        "dress_code": "Красивый тёплый свитер или элегантный наряд 🦊",
+        "place_link": "https://yandex.ru/maps/org/les_lis/130104256677 (Белгород, ул. Волчанская, 292в)",
+        "is_active": True
+    },
+    {
+        "id": 3,
+        "title": "Спешелти-кофе и прогулка в Calypso Coffee",
+        "description": "Легендарная кофейня Белгорода. Берем авторский раф или фильтр и идем гулять по уютному бульвару.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "food",
+        "requirements_text": "Выбрать любимые десерты и кофе с собой",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=500",
+        "dress_code": "Удобный городской кэжуал ☕",
+        "place_link": "https://yandex.ru/maps/org/calypso/1241198547 (Белгород, Свято-Троицкий бульвар, 11)",
+        "is_active": True
+    },
+    {
+        "id": 4,
+        "title": "Панорамный ужин в ресторане «Башня»",
+        "description": "Видовой ресторан с высоты в центре Белгорода. Романтичные огни ночного города.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "food",
+        "requirements_text": "Забронировать столик с панорамным видом на город",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=500",
+        "dress_code": "Элегантный вечерний наряд 🍸",
+        "place_link": "https://yandex.ru/maps/org/bashnya/1090408548 (Белгород, просп. Славы, 35)",
+        "is_active": True
+    },
+    {
+        "id": 5,
+        "title": "Грузинское застолье в «Хинкальной на Набережной»",
+        "description": "Горячие хинкали, хачапури по-аджарски с пылу с жару и вид на реку Везёлку.",
+        "location_type": "outside",
+        "time_type": "any",
+        "activity_type": "food",
+        "requirements_text": "Заказать стол у окна на реку",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=500",
+        "dress_code": "Комфортный стильный наряд 🧀",
+        "place_link": "https://yandex.ru/maps/org/khinkalnaya/1756473859 (Белгород, ул. Левобережная, 22)",
+        "is_active": True
+    },
+    {
+        "id": 6,
+        "title": "Свидание по-итальянски в «Перчини»",
+        "description": "Свежая паста ручной работы, пицца из дровяной печи и бокал вина в центре города.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "food",
+        "requirements_text": "Забронировать уютный столик",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500",
+        "dress_code": "Романтичный вечерний стиль 🍝",
+        "place_link": "https://yandex.ru/maps/org/perchini/1709403847 (Белгород, просп. Славы, 65)",
+        "is_active": True
+    },
+    {
+        "id": 7,
+        "title": "Французские круассаны на Белгородском Арбате",
+        "description": "Утреннее неспешное свидание на пешеходной улице 50-летия Белгородской области.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "food",
+        "requirements_text": "Хорошее настроение на неспешный бранч",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500",
+        "dress_code": "Легкий и нежный образ 🥐",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/кофейни%2050-летия%20Белгородской%20области",
+        "is_active": True
+    },
+    {
+        "id": 8,
+        "title": "Стейк-хаус и бургеры в «Чеховъ»",
+        "description": "Качественные сочные стейки, авторские настойки и классическая атмосфера.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "food",
+        "requirements_text": "Забронировать столик",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1544025162-d76694265947?w=500",
+        "dress_code": "Красивый вечерний casual 🥩",
+        "place_link": "https://yandex.ru/maps/org/chekhov/1183389025 (Белгород, ул. Преображенская, 84)",
+        "is_active": True
+    },
+    {
+        "id": 9,
+        "title": "Свидание в кондитерской «Медовик» / десертный тур",
+        "description": "Выбираем по 3 самых необычных десерта и пробуем их друг у друга с ароматным чаем.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "food",
+        "requirements_text": "Зайти в кондитерскую за свежими пирожными",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1587314168485-3236d6710814?w=500",
+        "dress_code": "Милый пастельный наряд 🍰",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/кондитерская%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 10,
+        "title": "Винный вечер в баре с тапасами",
+        "description": "Уютный вечер при свечах: дегустация сыров, оливок и легкого вина.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "food",
+        "requirements_text": "Бронь столика в винном баре",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=500",
+        "dress_code": "Маленькое черное платье или шелковая рубашка 🍷",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/винный%20бар%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 11,
+        "title": "Вечер в Драматическом театре им. Щепкина",
+        "description": "Торжественный вечер: бархатные кресла, спектакль, антракт с шампанским и цветами.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "Купить 2 билета в партер или бельэтаж, цветы девушке",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=500",
+        "dress_code": "Театральное вечернее платье 🎭",
+        "place_link": "https://yandex.ru/maps/org/belgorodskiy_gosudarstvenny_akademicheskiy_dramaticheskiy_teatr_imeni_m_s_shchepkina/1020721443 (Соборная площадь, 1)",
+        "is_active": True
+    },
+    {
+        "id": 12,
+        "title": "Органный или джазовый концерт в Филармонии",
+        "description": "Волшебная акустика Белгородской филармонии при свете софитов.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "Купить билеты на концерт классики или джаза",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=500",
+        "dress_code": "Элегантный и утонченный стиль 🎻",
+        "place_link": "https://yandex.ru/maps/org/belgorodskaya_gosudarstvennaya_filarmoniya/1089201990 (ул. Белгородского полка, 56а)",
+        "is_active": True
+    },
+    {
+        "id": 13,
+        "title": "Закат у памятника князю Владимиру на Харгоре",
+        "description": "Самая романтичная смотровая площадка города. Берем горячий чай, плед и смотрим на закат над Белгородом.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "Термос с травяным чаем, плед, вкусняшки",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=500",
+        "dress_code": "Теплая куртка или пальто для прогулки на ветру 🌆",
+        "place_link": "https://yandex.ru/maps/org/pamyatnik_knyazyu_vladimiru/1042784523 (Харьковская гора, просп. Ватутина)",
+        "is_active": True
+    },
+    {
+        "id": 14,
+        "title": "Прогулка по деревянным мостикам Белгородского зоопарка",
+        "description": "Уединенный зоопарк в сосновом лесу: острова посреди озера, лебеди и ухоженные животные.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "relax",
+        "requirements_text": "Купить входные билеты в зоопарк",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1534567153574-2b12153a87f0?w=500",
+        "dress_code": "Удобная обувь для долгой прогулки 🦩",
+        "place_link": "https://yandex.ru/maps/org/belgorodskiy_zoopark/1879774026 (ул. Волчанская, 292в)",
+        "is_active": True
+    },
+    {
+        "id": 15,
+        "title": "День в SPA-комплексе Riviera Wellness Resort",
+        "description": "Роскошный отдых в посёлке Разумное: термальные бассейны, хаммам, массаж и полный релакс вдвоём.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "relax",
+        "requirements_text": "Забронировать дневной визит в SPA для пары",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=500",
+        "dress_code": "Купальник, свободная пляжная одежда 🧖‍♀️",
+        "place_link": "https://yandex.ru/maps/org/riviera_wellness_resort/1709403847 (Белгородский р-н, пос. Разумное, ул. Прелестная, 1)",
+        "is_active": True
+    },
+    {
+        "id": 16,
+        "title": "Прогулка по Набережной Везёлки и Парку Победы",
+        "description": "Вечерние гирлянды у реки, мостик влюбленных, кормление уточек и стаканчик горячего глинтвейна.",
+        "location_type": "outside",
+        "time_type": "any",
+        "activity_type": "relax",
+        "requirements_text": "Зерно для птиц, горячий напиток с собой",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?w=500",
+        "dress_code": "Уютный повседневный образ 🦆",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/набережная%20везелки",
+        "is_active": True
+    },
+    {
+        "id": 17,
+        "title": "Поездка к вековому Дубу в посёлке Дубовое",
+        "description": "Легендарный 400-летний дуб, каскад прудов, тишина и романтичные лавочки под старинными ветвями.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "relax",
+        "requirements_text": "Плед, фрукты и любимая музыка в машине",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1448375240586-882707db888b?w=500",
+        "dress_code": "Стильный осенний / весенний аутфит 🌳",
+        "place_link": "https://yandex.ru/maps/org/dub_bogolubov/1040858162 (п. Дубовое, парк «Дубы»)",
+        "is_active": True
+    },
+    {
+        "id": 18,
+        "title": "Белгородский Художественный музей",
+        "description": "Спокойное свидание среди картин, мягкий свет и разговор об искусстве без спешки.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "relax",
+        "requirements_text": "Купить 2 билета на текущую выставку",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1565008447742-97f6f38c985c?w=500",
+        "dress_code": "Интеллигентный минимализм / эстетичный лук 🎨",
+        "place_link": "https://yandex.ru/maps/org/belgorodskiy_gosudarstvenny_khudozhestvenny_muzey/1006509939 (ул. Победы, 77)",
+        "is_active": True
+    },
+    {
+        "id": 19,
+        "title": "Пикник на пляже Белгородского водохранилища («Лазурный»)",
+        "description": "Белый песок, шум волн «Белгородского моря» и романтический пикник при закате.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "relax",
+        "requirements_text": "Корзина с фруктами, круассаны, колонка и плед",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500",
+        "dress_code": "Легкий сарафан или шорты 🌊",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/пляж%20лазурный%20белгород",
+        "is_active": True
+    },
+    {
+        "id": 20,
+        "title": "Вечер в тайском SPA для двоих «Royal Thai»",
+        "description": "Традиционный парный массаж с теплыми маслами, лепестки роз и чашечка имбирного чая.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "Забронировать спа-программу для двоих",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?w=500",
+        "dress_code": "Свободная одежда, которую легко переодеть 🌸",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/тайский%20спа%20белгород",
+        "is_active": True
+    },
+    {
+        "id": 21,
+        "title": "Гончарный мастер-класс для двоих в «Колокол»",
+        "description": "Создаем свои керамические чашки или тарелочки за гончарным кругом, как в фильме «Привидение».",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "active",
+        "requirements_text": "Забронировать парный мастер-класс за кругом",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=500",
+        "dress_code": "Одежда, которую не страшно испачкать глиной 🏺",
+        "place_link": "https://yandex.ru/maps/org/kolokol/182559560037 (Свято-Троицкий бульвар, 1)",
+        "is_active": True
+    },
+    {
+        "id": 22,
+        "title": "Драйв на картах в АСК «Вираж»",
+        "description": "Настоящий автодром! Надеваем шлемы и гоняем на быстрых картах по скоростной трассе.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "active",
+        "requirements_text": "Забронировать 2 заезда на картодроме",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=500",
+        "dress_code": "Спортивный костюм и кроссовки 🏎️",
+        "place_link": "https://yandex.ru/maps/org/ask_virazh/1090009623 (Западный подъезд к Белгороду, 11)",
+        "is_active": True
+    },
+    {
+        "id": 23,
+        "title": "Катание на коньках в «МегаГринн»",
+        "description": "Крытый ледовый каток: держимся за руки, скользим под музыку и согреваемся какао.",
+        "location_type": "outside",
+        "time_type": "any",
+        "activity_type": "active",
+        "requirements_text": "Взять коньки напрокат, теплые носки",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=500",
+        "dress_code": "Уютный свитер, шапка и перчатки ⛸️",
+        "place_link": "https://yandex.ru/maps/org/megagrinn/1218556393 (просп. Богдана Хмельницкого, 137т)",
+        "is_active": True
+    },
+    {
+        "id": 24,
+        "title": "Прогулка на сапбордах (SUP) по Везёлке",
+        "description": "Встречаем рассвет или закат на сапах посреди зеркальной глади воды в центре города.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "active",
+        "requirements_text": "Забронировать 2 сапборда на лодочной станции",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=500",
+        "dress_code": "Спортивная одежда, сменные вещи 🏄‍♀️",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/прокат%20сапбордов%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 25,
+        "title": "Конная прогулка в клубе «Серебряная подкова»",
+        "description": "Верховая езда по тихому сосновому лесу на грациозных ухоженных лошадях.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "active",
+        "requirements_text": "Записаться на конную прогулку для пары, морковка лошадям",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=500",
+        "dress_code": "Удобные джинсы и обувь без каблука 🐎",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/конный%20клуб%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 26,
+        "title": "VR-арена «Another World» / «WARPOINT»",
+        "description": "Надеваем шлемы виртуальной реальности и вдвоём спасаем мир или сражаемся в красочных мирах.",
+        "location_type": "outside",
+        "time_type": "any",
+        "activity_type": "active",
+        "requirements_text": "Забронировать арену виртуальной реальности на 1 час",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1593508512255-86ab42a8e620?w=500",
+        "dress_code": "Свободная легкая футболка и кроссовки 🥽",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/VR%20клуб%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 27,
+        "title": "Вечер боулинга и коктейлей в «МегаГринн»",
+        "description": "Весёлое соревнование: кто выбьет больше страйков, тот заказывает пиццу!",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "active",
+        "requirements_text": "Забронировать дорожку для боулинга",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1545232979-8bf68ee9b1af?w=500",
+        "dress_code": "Удобный повседневный образ 🎳",
+        "place_link": "https://yandex.ru/maps/org/megagrinn/1218556393 (просп. Б. Хмельницкого, 137т)",
+        "is_active": True
+    },
+    {
+        "id": 28,
+        "title": "Парный кулинарный мастер-класс",
+        "description": "Вместе готовим настоящую итальянскую пасту или стейки с ресторанной подачей под руководством шефа.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "food",
+        "requirements_text": "Записаться на мастер-класс для пары",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=500",
+        "dress_code": "Стильный удобный наряд 👩‍🍳",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/кулинарная%20студия%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 29,
+        "title": "Квест-комната с загадками для двоих",
+        "description": "Тайны, потайные двери и адреналин. Проверяем, насколько слаженно мы работаем в команде!",
+        "location_type": "outside",
+        "time_type": "any",
+        "activity_type": "active",
+        "requirements_text": "Забронировать квест-комнату на двоих",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500",
+        "dress_code": "Удобная одежда без каблуков 🗝️",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/квесты%20в%20реальности%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 30,
+        "title": "Прогулка на велосипедах по велодорожкам парка Ленина",
+        "description": "Берем городские велосипеды, катаемся по тенистым аллеям и едим мороженое.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "active",
+        "requirements_text": "Арендовать 2 велосипеда или электросамоката",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=500",
+        "dress_code": "Спортивный городской лук 🚲",
+        "place_link": "https://yandex.ru/maps/org/tsentralny_park_kultury_i_otdykha_imeni_v_i_lenina/1020721443 (Центральный парк)",
+        "is_active": True
+    },
+    {
+        "id": 31,
+        "title": "Батутный центр «Skyfly» / «Кенгуру»",
+        "description": "Прыгаем в поролоновые ямы, дурачимся и смеёмся от души, как в детстве.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "active",
+        "requirements_text": "Купить билеты на 1 час свободных прыжков",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1520697830682-bbb6e85e2b0b?w=500",
+        "dress_code": "Спортивные штаны, футболка и чистые носки 🤸‍♀️",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/батутный%20центр%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 32,
+        "title": "Совместная Love Story фотосессия в студии",
+        "description": "Профессиональный фотограф, красивый свет и десятки нежных кадров на всю жизнь.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "relax",
+        "requirements_text": "Забронировать 1 час фотостудии и фотографа",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?w=500",
+        "dress_code": "Сочетающиеся стильные образы (Family Look) 📸",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/фотостудия%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 33,
+        "title": "Стендап-вечер юмора в баре «Декабрист»",
+        "description": "Живые выступления белгородских комиков, крафтовые напитки и много смеха.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "Купить 2 билета на вечерний StandUp",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=500",
+        "dress_code": "Стильный барный кэжуал 🎤",
+        "place_link": "https://yandex.ru/maps/org/dekabrist/1020721443 (Белгород, Гражданский просп., 47)",
+        "is_active": True
+    },
+    {
+        "id": 34,
+        "title": "Бильярдный поединок в клубе «Пирамида»",
+        "description": "Учимся правильной стойке у зеленого сукна, пьем кофе и соревнуемся в точности удара.",
+        "location_type": "outside",
+        "time_type": "night",
+        "activity_type": "active",
+        "requirements_text": "Забронировать русский или пул-стол",
+        "requires_booking": True,
+        "photo_url": "https://images.unsplash.com/photo-1582192732943-e1545dfdf17c?w=500",
+        "dress_code": "Элегантный клубный стиль 🎱",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/бильярд%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 35,
+        "title": "Аренда лодки на речной станции Везёлки",
+        "description": "Гребем веслами, кормим уток и плывем вдоль зелёных берегов города.",
+        "location_type": "outside",
+        "time_type": "day",
+        "activity_type": "active",
+        "requirements_text": "Арендовать лодку на 1 час",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=500",
+        "dress_code": "Легкий романтичный сарафан или ветровка 🚣‍♀️",
+        "place_link": "https://yandex.ru/maps/4/belgorod/search/лодочная%20станция%20Белгород",
+        "is_active": True
+    },
+    {
+        "id": 36,
+        "title": "Домашний сырный или шоколадный фондю-вечер",
+        "description": "Растапливаем сыр или бельгийский шоколад в котелке, макаем клубнику, маршмеллоу и хрустящий багет.",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "food",
+        "requirements_text": "Фондюшница, сыр грюйер/гауда, багет, шоколад, свежая клубника",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=500",
+        "dress_code": "Уютный домашний оверсайз 🧀",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 37,
+        "title": "Киномарафон под замком из подушек и гирлянд",
+        "description": "Строим форт из всех пледов и подушек дома, протягиваем тёплые гирлянды и смотрим любимую франшизу.",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "Много подушек, пледы, гирлянда, солёный попкорн",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=500",
+        "dress_code": "Самая мягкая пижама или худи 🏰",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 38,
+        "title": "Домашняя пицца своими руками с нуля",
+        "description": "Замешиваем тонкое тесто, бросаем начинку, посыпаем моцареллой и запекаем под итальянский плейлист.",
+        "location_type": "home",
+        "time_type": "any",
+        "activity_type": "food",
+        "requirements_text": "Мука, дрожжи, моцарелла, пепперони, томатный соус, оливки",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500",
+        "dress_code": "Удобная футболка и фартук 🍕",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 39,
+        "title": "Вечер рисования картин и вина при свечах",
+        "description": "Покупаем 2 небольших холста на подрамнике, акрил и пишем портреты друг друга (пусть даже смешные!).",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "2 холста, краски акрил, кисти, бутылка любимого вина",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=500",
+        "dress_code": "Одежда, которую не жалко слегка испачкать 🎨",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 40,
+        "title": "Слепая дегустация сладостей и фруктов",
+        "description": "Завязываем друг другу глаза шелковой повязкой и угадываем редкие экзотические фрукты и шоколад.",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "food",
+        "requirements_text": "Повязка на глаза, 6 видов фруктов и десертов",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1452195100486-9cc805987862?w=500",
+        "dress_code": "Что-то мягкое и романтичное 🍓",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 41,
+        "title": "Командное прохождение игры «It Takes Two»",
+        "description": "Лучшая кооперативная игра для пар влюбленных: смех, переживания и взаимная поддержка.",
+        "location_type": "home",
+        "time_type": "any",
+        "activity_type": "active",
+        "requirements_text": "Консоль / ПК с игрой It Takes Two, 2 геймпада, чипсы и кола",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=500",
+        "dress_code": "Геймерский чилл-аут лук 🎮",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 42,
+        "title": "Домашний SPA-салон: ванна с пеной и массаж",
+        "description": "Аромасвечи, морская соль, гора пены, лепестки и нежный расслабляющий массаж под тихий лаунж.",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "Пена для ванны, аромамасло, плавающие свечи, фрукты",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1515377905703-c4788e51af15?w=500",
+        "dress_code": "Шёлковый или махровый халат 🛁",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 43,
+        "title": "Ночной турнир по настолкам («Взрывные котята» / «Кодовые имена»)",
+        "description": "Включаем подсветку, открываем пачку настолок и спорим, кто лучше блефует.",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "active",
+        "requirements_text": "Настольные игры для двоих, закуски, напитки",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=500",
+        "dress_code": "Свободный домашний стиль 🎲",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 44,
+        "title": "Вечер японских онигири и моти дома",
+        "description": "Лепим треугольные рисовые онигири с лососем и тунцом и пробуем нежные японские десерты моти.",
+        "location_type": "home",
+        "time_type": "day",
+        "activity_type": "food",
+        "requirements_text": "Круглый рис, листы нори, лосось, сливочный сыр, соевый соус",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=500",
+        "dress_code": "Удобная домашняя одежда 🍙",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 45,
+        "title": "Музыкальный вечер винила или любимых треков",
+        "description": "Включаем виниловый проигрыватель или подборку медленных романтичных треков при свечах и танцуем прямо в комнате.",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "Колонка / проигрыватель, свечи, бутылка хорошего вина",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1539185441755-769473a23570?w=500",
+        "dress_code": "Красивый вечерний домашний образ 📻",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 46,
+        "title": "Чайная церемония и глубокие разговоры",
+        "description": "Завариваем коллекционный пуэр или улун методом пролива в гайвани и задаём друг другу важные вопросы.",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "relax",
+        "requirements_text": "Хороший листовой чай, пиалы, спокойная музыка",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=500",
+        "dress_code": "Свободный минималистичный наряд 🍵",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 47,
+        "title": "Битва коктейлей / домашний бармен",
+        "description": "Покупаем шейкер, сиропы, лёд и придумываем фирменные авторские коктейли друг для друга с названиями.",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "food",
+        "requirements_text": "Шейкер, мята, лайм, лёд, тоник, ягоды, любимый алкоголь",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?w=500",
+        "dress_code": "Стильный барный лук дома 🍸",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 48,
+        "title": "Утренняя фотосессия и панкейки в постель",
+        "description": "Готовим стопку пушистых панкейков с кленовым сиропом и ягодами, завтракаем прямо в кровати и делаем милые селфи.",
+        "location_type": "home",
+        "time_type": "day",
+        "activity_type": "food",
+        "requirements_text": "Ингредиенты для панкейков, ягоды, красивый поднос для кровати",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1528207776546-365bb710ee93?w=500",
+        "dress_code": "Уютная светлая пижама 🥞",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 49,
+        "title": "Вечер караоке для двоих",
+        "description": "Включаем микрофон или видео с караоке на ютубе и громко поем все любимые треки нашей юности.",
+        "location_type": "home",
+        "time_type": "night",
+        "activity_type": "active",
+        "requirements_text": "Микрофон или колонка, плейлист караоке-песен",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=500",
+        "dress_code": "Яркий рок-звездный образ 🎤",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
+    },
+    {
+        "id": 50,
+        "title": "Создание совместной «Карты мечты» (Vision Board)",
+        "description": "Журналы, клей, ватман и ножницы: мечтаем о будущих поездках, совместном доме и целях на годы вперед.",
+        "location_type": "home",
+        "time_type": "any",
+        "activity_type": "relax",
+        "requirements_text": "Ватман / доска, цветные маркеры, распечатки фото, клей",
+        "requires_booking": False,
+        "photo_url": "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=500",
+        "dress_code": "Уютный домашний комплект 🗺️",
+        "place_link": "https://yandex.ru/maps/4/belgorod/ (Дома в Белгороде)",
+        "is_active": True
     }
+]
 
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-# Сдача отчета о свидании и фоток
-@app.post("/api/complete-date")
-async def complete_date(
-        active_date_id: int = Form(...),
-        rating: int = Form(5),
-        review_text: str = Form(""),
-        photos: list[UploadFile] = File(...),
-        db: AsyncSession = Depends(get_db)
-):
-    if len(photos) < 3:
-        raise HTTPException(status_code=400, detail="Нужно минимум 3 фото!")
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(DateIdea))
+        existing = result.scalars().all()
+        if not existing:
+            for item in BELGOROD_50_IDEAS:
+                idea = DateIdea(**item)
+                session.add(idea)
+            await session.commit()
 
-    result = await db.execute(select(ActiveDate).where(ActiveDate.id == active_date_id))
-    active = result.scalar_one_or_none()
-    if not active:
-        raise HTTPException(status_code=404, detail="Active date not found")
+        # Удаляем демо-свидание «Ужин у воды» из завершенных
+        await session.execute(delete(ActiveDate).where(ActiveDate.status == "completed"))
 
-    saved_photo_urls = []
-    for file in photos:
-        ext = os.path.splitext(file.filename)[1] or ".jpg"
-        unique_name = f"{uuid.uuid4().hex}{ext}"
-        filepath = os.path.join("static/uploads", unique_name)
-        async with aiofiles.open(filepath, "wb") as f:
-            content = await file.read()
-            await f.write(content)
-        saved_photo_urls.append(f"/static/uploads/{unique_name}")
+        # Проверяем, есть ли уже активное свидание
+        active_check = await session.execute(select(ActiveDate).where(ActiveDate.status == "chosen"))
+        current_active = active_check.scalars().first()
 
-    active.rating = rating
-    active.review_text = review_text
-    active.status = "completed"
-    active.photos = saved_photo_urls
-    await db.commit()
-
-    await notify_admin_date_completed(
-        rating=rating,
-        review=review_text,
-        photos_count=len(photos)
-    )
-
-    return {"status": "success"}
-
-
-# Получение истории для альбома воспоминаний (только завершенные реальные свидания)
-@app.get("/api/history")
-async def get_history(db: AsyncSession = Depends(get_db)):
-    query = select(ActiveDate).where(ActiveDate.status == "completed").order_by(desc(ActiveDate.id))
-    result = await db.execute(query)
-    completed_dates = result.scalars().all()
-
-    memories = []
-    for d in completed_dates:
-        idea_res = await db.execute(select(DateIdea).where(DateIdea.id == d.date_idea_id))
-        idea = idea_res.scalar_one_or_none()
-        memories.append({
-            "id": d.id,
-            "title": idea.title if idea else "Романтическое свидание",
-            "description": idea.description if idea else "",
-            "location_type": idea.location_type if idea else "home",
-            "selected_at": d.selected_at.isoformat() if d.selected_at else "",
-            "rating": d.rating,
-            "review_text": d.review_text,
-            "photos": d.photos or []
-        })
-
-    return memories
-
-
-# Добавление нового свидания через панель парня
-@app.post("/api/admin/ideas")
-async def admin_add_idea(
-        title: str = Form(...),
-        description: str = Form(...),
-        location_type: str = Form("home"),
-        weather_type: str = Form("any"),
-        time_type: str = Form("any"),
-        activity_type: str = Form("food"),
-        requirements_text: str = Form(""),
-        dress_code: str = Form(""),
-        requires_booking: bool = Form(False),
-        place_link: str = Form(""),
-        photo: UploadFile = File(None),
-        db: AsyncSession = Depends(get_db)
-):
-    photo_url = "https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=500"
-    if photo and photo.filename:
-        ext = os.path.splitext(photo.filename)[1] or ".jpg"
-        unique_name = f"{uuid.uuid4().hex}{ext}"
-        filepath = os.path.join("static/uploads", unique_name)
-        async with aiofiles.open(filepath, "wb") as f:
-            content = await photo.read()
-            await f.write(content)
-        photo_url = f"/static/uploads/{unique_name}"
-
-    new_idea = DateIdea(
-        title=title,
-        description=description,
-        location_type=location_type,
-        weather_type=weather_type,
-        time_type=time_type,
-        activity_type=activity_type,
-        requirements_text=requirements_text,
-        dress_code=dress_code,
-        requires_booking=requires_booking,
-        place_link=place_link,
-        photo_url=photo_url,
-        is_active=True
-    )
-    db.add(new_idea)
-    await db.commit()
-    await db.refresh(new_idea)
-    return {"status": "success", "idea_id": new_idea.id}
+        # Если активного нет — делаем VR-арену (id=26) единственным активным
+        if not current_active:
+            vr_active = ActiveDate(
+                date_idea_id=26,
+                selected_at=datetime.utcnow(),
+                status="chosen",
+                rating=None,
+                review_text=None,
+                photos=[]
+            )
+            session.add(vr_active)
+            await session.commit()
