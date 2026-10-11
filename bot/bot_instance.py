@@ -1,30 +1,45 @@
+import os
 import logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart, Command
 from aiogram.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-bot = Bot(token=settings.BOT_TOKEN)
+# Если api.telegram.org блокируется провайдером, можно передать прокси в .env (например PROXY_URL=http://user:pass@ip:port)
+proxy_url = os.getenv("PROXY_URL", None)
+session = AiohttpSession(proxy=proxy_url) if proxy_url else None
+
+bot = Bot(
+    token=settings.BOT_TOKEN,
+    session=session,
+    default=DefaultBotProperties(parse_mode="Markdown")
+)
 dp = Dispatcher()
 
-# Гарантированный базовый URL вашего сервиса на Render
-DEFAULT_WEBAPP_URL = "https://date-planner-9vny.onrender.com"
+CURRENT_WEBAPP_URL = settings.BASE_URL or "http://localhost:8000"
+
+def set_current_webapp_url(url: str):
+    global CURRENT_WEBAPP_URL
+    CURRENT_WEBAPP_URL = url.rstrip("/")
+    logger.info(f"Активный WebApp URL обновлен: {CURRENT_WEBAPP_URL}")
+
+def get_current_webapp_url() -> str:
+    return CURRENT_WEBAPP_URL
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
-    # Если переменная BASE_URL не задана в настройках Render, используем DEFAULT_WEBAPP_URL
-    webapp_url = settings.BASE_URL.strip() if settings.BASE_URL else DEFAULT_WEBAPP_URL
-    if not webapp_url.startswith("http"):
-        webapp_url = f"https://{webapp_url}"
-
+    webapp_url = get_current_webapp_url()
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Выбрать свидание 💖", web_app=WebAppInfo(url=webapp_url))]
     ])
     await message.answer(
-        "Привет, любимая! 💕\n\nНажми на кнопку ниже, чтобы открыть наш сервис и выбрать самое лучшее свидание ✨",
+        "Привет, любимая! 💕\n\n"
+        "Нажми на кнопку ниже или в меню слева, чтобы открыть наш сервис и выбрать самое лучшее свидание ✨",
         reply_markup=kb
     )
 
@@ -34,11 +49,7 @@ async def cmd_admin(message: types.Message):
         await message.answer("Доступ только для администратора.")
         return
 
-    base = settings.BASE_URL.strip() if settings.BASE_URL else DEFAULT_WEBAPP_URL
-    if not base.startswith("http"):
-        base = f"https://{base}"
-    admin_url = f"{base}/admin"
-
+    admin_url = f"{get_current_webapp_url()}/admin"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Панель добавления свиданий ➕", web_app=WebAppInfo(url=admin_url))]
     ])
@@ -72,8 +83,7 @@ async def notify_admin_date_chosen(
     try:
         await bot.send_message(
             chat_id=settings.ADMIN_TELEGRAM_ID,
-            text=text,
-            parse_mode="Markdown"
+            text=text
         )
     except Exception as e:
         logger.error(f"Failed to send telegram notification: {e}")
@@ -84,16 +94,15 @@ async def notify_admin_date_completed(rating: int, review: str, photos_count: in
 
     stars = "⭐" * max(1, min(5, rating))
     text = (
-        f"📸 *Сдан отчет о свидании!*\n\n"
+        f"📸 *Сдан/обновлён отчет о свидании!*\n\n"
         f"Оценка: {stars} ({rating}/5)\n"
-        f"Отзыв: {review}\n"
+        f"Отзыв: {review or 'Без текста'}\n"
         f"Загружено фото: {photos_count} шт."
     )
     try:
         await bot.send_message(
             chat_id=settings.ADMIN_TELEGRAM_ID,
-            text=text,
-            parse_mode="Markdown"
+            text=text
         )
     except Exception as e:
         logger.error(f"Failed to send completion notification: {e}")

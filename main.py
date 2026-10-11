@@ -2,7 +2,7 @@ import os
 import uuid
 import aiofiles
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -22,7 +22,6 @@ async def on_startup():
     await init_db()
 
 
-# Отдача HTML страниц напрямую через FileResponse
 @app.get("/", response_class=FileResponse)
 async def get_index():
     return FileResponse("templates/index.html")
@@ -108,25 +107,29 @@ async def get_active_date(db: AsyncSession = Depends(get_db)):
     }
 
 
-# Сдача отчета о свидании и фоток
+# Сдача или редактирование отчета
 @app.post("/api/complete-date")
 async def complete_date(
         active_date_id: int = Form(...),
-        rating: int = Form(5),
+        rating: int = Form(...),
         review_text: str = Form(""),
-        photos: list[UploadFile] = File(...),
+        photos: list[UploadFile] = File(default=[]),
         db: AsyncSession = Depends(get_db)
 ):
-    if len(photos) < 3:
-        raise HTTPException(status_code=400, detail="Нужно минимум 3 фото!")
-
     result = await db.execute(select(ActiveDate).where(ActiveDate.id == active_date_id))
     active = result.scalar_one_or_none()
     if not active:
         raise HTTPException(status_code=404, detail="Active date not found")
 
-    saved_photo_urls = []
-    for file in photos:
+    existing_photos = active.photos or []
+    valid_photos = [f for f in photos if f.filename]
+    is_editing = active.status == "completed" and len(existing_photos) >= 3
+
+    if not is_editing and len(valid_photos) < 3:
+        raise HTTPException(status_code=400, detail="Нужно минимум 3 фото!")
+
+    saved_photo_urls = list(existing_photos) if is_editing else []
+    for file in valid_photos:
         ext = os.path.splitext(file.filename)[1] or ".jpg"
         unique_name = f"{uuid.uuid4().hex}{ext}"
         filepath = os.path.join("static/uploads", unique_name)
@@ -140,20 +143,24 @@ async def complete_date(
     active.status = "completed"
     active.photos = saved_photo_urls
     await db.commit()
+    await db.refresh(active)
 
     await notify_admin_date_completed(
         rating=rating,
         review=review_text,
-        photos_count=len(photos)
+        photos_count=len(saved_photo_urls)
     )
 
     return {"status": "success"}
 
 
-# Получение истории для альбома воспоминаний (только завершенные реальные свидания)
+# Получение истории для альбома воспоминаний
 @app.get("/api/history")
 async def get_history(db: AsyncSession = Depends(get_db)):
-    query = select(ActiveDate).where(ActiveDate.status == "completed").order_by(desc(ActiveDate.id))
+    query = select(ActiveDate).where(
+        ActiveDate.status == "completed",
+        ActiveDate.date_idea_id != 1
+    ).order_by(desc(ActiveDate.id))
     result = await db.execute(query)
     completed_dates = result.scalars().all()
 
@@ -161,11 +168,14 @@ async def get_history(db: AsyncSession = Depends(get_db)):
     for d in completed_dates:
         idea_res = await db.execute(select(DateIdea).where(DateIdea.id == d.date_idea_id))
         idea = idea_res.scalar_one_or_none()
+        # Дополнительная проверка на название "Солома" или id 1
+        if not idea or idea.id == 1 or "Солома" in idea.title:
+            continue
         memories.append({
             "id": d.id,
-            "title": idea.title if idea else "Романтическое свидание",
-            "description": idea.description if idea else "",
-            "location_type": idea.location_type if idea else "home",
+            "title": idea.title,
+            "description": idea.description or "",
+            "location_type": idea.location_type or "home",
             "selected_at": d.selected_at.isoformat() if d.selected_at else "",
             "rating": d.rating,
             "review_text": d.review_text,
